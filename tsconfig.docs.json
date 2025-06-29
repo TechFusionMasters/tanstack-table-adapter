@@ -3,5 +3,16 @@
   "compilerOptions": {
     "noUnusedLocals": false,
     "noUnusedParameters": false
+  },
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "out": "docs",
+    "name": "TanStack Table Adapter API",
+    "includeVersion": true,
+    "excludePrivate": true,
+    "excludeExternals": true,
+    "hideGenerator": true,
+    "readme": "README.md",
+    "plugin": ["typedoc-plugin-markdown"]
   }
 }

@@ -18,7 +18,8 @@
     "build-storybook": "storybook build",
     "clean": "rimraf dist",
     "prepare": "npm run clean && npm run build && npm run build:types",
-     "docs": "typedoc --tsconfig tsconfig.docs.json --out docs src/index.ts"
+    "docs": "typedoc --tsconfig tsconfig.docs.json --out storybook-static/api src/index.ts",
+    "build-docs": "npm run build-storybook && npm run docs"
   },
   "keywords": [
     "tanstack",
@@ -68,6 +69,7 @@
     "ts-jest": "^29.1.1",
     "tslib": "^2.6.2",
     "typedoc": "^0.28.6",
+    "typedoc-plugin-markdown": "^4.7.0",
     "typescript": "^5.3.3"
   }
 }
