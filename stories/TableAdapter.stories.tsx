@@ -8,6 +8,7 @@ import {
   largeDataSet,
   Person,
 } from "./mockData";
+import { fuzzyFilter } from "../src/utils";
 
 /**
  * The TableAdapter component provides a feature-rich wrapper around TanStack Table (React Table v8).
@@ -132,6 +133,7 @@ export const WithGlobalFilter: Story = {
           {...args}
           globalFilter={globalFilter}
           onGlobalFilterChange={setGlobalFilter}
+          globalFilterFn={fuzzyFilter}
         />
       </div>
     );

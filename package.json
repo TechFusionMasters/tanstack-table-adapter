@@ -10,14 +10,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c rollup.config.mjs",            
+    "build": "rollup -c rollup.config.mjs",
     "build:types": "rollup -c rollup.config.types.mjs",
-    "dev": "rollup -c rollup.config.mjs -w",           
+    "dev": "rollup -c rollup.config.mjs -w",
     "test": "jest",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "clean": "rimraf dist",
-    "prepare": "npm run clean && npm run build && npm run build:types"
+    "prepare": "npm run clean && npm run build && npm run build:types",
+     "docs": "typedoc --tsconfig tsconfig.docs.json --out docs src/index.ts"
   },
   "keywords": [
     "tanstack",
@@ -66,6 +67,7 @@
     "tailwindcss": "^4.1.11",
     "ts-jest": "^29.1.1",
     "tslib": "^2.6.2",
+    "typedoc": "^0.28.6",
     "typescript": "^5.3.3"
   }
 }
