@@ -23,6 +23,11 @@ jobs:
           node-version: 18
           registry-url: "https://registry.npmjs.org/"
 
+      - name: Configure npm to ignore scripts
+        run: |
+          echo "ignore-scripts=true" > .npmrc
+          cat .npmrc
+
       - name: Install dependencies
         run: npm ci
 
@@ -45,6 +50,6 @@ jobs:
           echo "New version: $(npm pkg get version)"
 
       - name: Publish to npm
-        run: npm publish --access public --ignore-scripts
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
