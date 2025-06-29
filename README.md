@@ -1,22 +1,31 @@
 # TableAdapter
 
-A powerful, flexible, and feature-rich React table component built on top of [TanStack Table (React Table v8)](https://tanstack.com/table/v8). Designed for both client-side and server-side data, TableAdapter provides advanced features like pagination, sorting, filtering, row selection, column resizing, and more, with a simple and customizable API.
+TableAdapter is a reusable, opinionated helper/wrapper for [TanStack Table (React Table v8)](https://tanstack.com/table/v8). It much easier and faster to build advanced, production-ready tables with TanStack Table. TableAdapter provides sensible defaults, built-in UI helpers, and developer experience improvements—so you can focus on your app, not table boilerplate.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 ---
 
-## Features
+## Demo
 
-- **Client-side & server-side** pagination, sorting, filtering, and grouping
-- **Row selection**, expansion, pinning, and grouping
-- **Column resizing**, ordering, and visibility toggles
-- **Custom renderers** for headers, footers, cells, pagination, and more
-- **Loading states** and customizable loading components
-- **Accessibility**: ARIA labels and keyboard navigation
-- **TypeScript** support with strong generics
-- **Export to CSV** utility
-- **Tailwind CSS**-friendly by default
+- **Live Demo:** [https://techfusionmasters.github.io/tanstack-table-adapter](https://techfusionmasters.github.io/tanstack-table-adapter)
+- **API Documentation:** [https://techfusionmasters.github.io/tanstack-table-adapter/api/index.html](https://techfusionmasters.github.io/tanstack-table-adapter/api/index.html)
+
+---
+
+## Unique Features of TableAdapter
+
+- **Unified, opinionated API** for rapid table setup with sensible defaults
+- **Built-in loading states**: initial, overlay, and pagination loading with customizable components
+- **Server/client mode switching**: seamless support for both client-side and server-side data, including pagination, sorting, and filtering
+- **Customizable renderers** for table header, footer, pagination, no-results, expanded rows, and more
+- **Row selection UI**: out-of-the-box support for row selection with header and cell checkboxes
+- **Column visibility toggles**: easy-to-use helper for showing/hiding columns
+- **Global filter helpers**: ready-to-use global filter input and fuzzy filter function
+- **CSV export utility**: one-liner export of table data to CSV
+- **Tailwind CSS-friendly**: default classes and structure designed for Tailwind projects
+- **TypeScript-first**: strong generics and prop types for safety and DX
+- **Minimal boilerplate**: get advanced tables running with just a few lines of code
 
 ---
 
