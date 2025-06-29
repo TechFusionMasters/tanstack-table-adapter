@@ -1,4 +1,3 @@
-import React from "react";
 import { Table as TanStackTable } from "@tanstack/react-table";
 
 export const EnhancedLoadingComponent = () => (
