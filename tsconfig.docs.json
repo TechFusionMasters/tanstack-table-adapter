@@ -11,8 +11,6 @@
     "includeVersion": true,
     "excludePrivate": true,
     "excludeExternals": true,
-    "hideGenerator": true,
-    "readme": "README.md",
-    "plugin": ["typedoc-plugin-markdown"]
+    "hideGenerator": true
   }
 }
