@@ -29,35 +29,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
-      # Debug TypeDoc installation
-      - name: Check TypeDoc installation
-        run: |
-          echo "TypeDoc version:"
-          npx typedoc --version || echo "TypeDoc not found"
-          echo "Current directory structure:"
-          ls -la
-          echo "Package.json scripts:"
-          cat package.json | grep -A 20 '"scripts"'
-      
       # Step 1: Build Storybook first
       - name: Build Storybook
         run: npm run build-storybook
         
-      # Debug Storybook output
-      - name: Check Storybook output
-        run: |
-          echo "Storybook output directory:"
-          ls -la storybook-static || echo "storybook-static directory not found"
-      
-      # Step 2: Generate TypeDoc manually with explicit output path
+      # Step 2: Generate TypeDoc into a subdirectory of Storybook
       - name: Generate TypeDoc documentation
-        run: |
-          echo "Running TypeDoc directly with explicit output path..."
-          npx typedoc --out storybook-static/api src/index.ts
-          echo "Checking if TypeDoc output was created:"
-          ls -la storybook-static/api || echo "api directory not found in storybook-static"
+        run: npm run docs
         
-      # Step 3: Create a simple navigation page
+      # Step 3: Create a simple navigation page (optional)
       - name: Create navigation page
         run: |
           echo '<!DOCTYPE html>
@@ -80,16 +60,6 @@ jobs:
             </div>
           </body>
           </html>' > storybook-static/docs-home.html
-      
-      # Final directory check before deployment
-      - name: Final directory check
-        run: |
-          echo "Final directory structure before deployment:"
-          find storybook-static -type d | sort
-          echo "Files in storybook-static root:"
-          ls -la storybook-static/
-          echo "Files in api directory (if it exists):"
-          ls -la storybook-static/api/ || echo "API directory not found"
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
