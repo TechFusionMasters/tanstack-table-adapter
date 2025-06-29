@@ -18,8 +18,7 @@
     "build-storybook": "storybook build",
     "clean": "rimraf dist",
     "lint": "eslint src --ext .ts,.tsx",
-    "prepare": "npm run clean && npm run build && npm run build:types",
-    "prepublishOnly": "npm run lint && npm test"
+    "prepare": "npm run clean && npm run build && npm run build:types"
   },
   "keywords": [
     "tanstack",

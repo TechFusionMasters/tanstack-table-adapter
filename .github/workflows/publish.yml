@@ -3,6 +3,12 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (patch, minor, major, or specific version)"
+        required: true
+        default: "patch"
 
 jobs:
   build-and-publish:
@@ -20,8 +26,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Clean build directory
+        run: npm run clean
+
       - name: Build package
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:types
+
+      - name: Update version (if using workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [[ "${{ github.event.inputs.version }}" =~ ^(patch|minor|major)$ ]]; then
+            npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          else
+            npm version ${{ github.event.inputs.version }} --allow-same-version --no-git-tag-version
+          fi
+          echo "New version: $(npm pkg get version)"
 
       - name: Publish to npm
         run: npm publish --access public
