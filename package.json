@@ -1,5 +1,5 @@
 {
-  "name": "@TechFusionMasters/tanstack-table-adapter",
+  "name": "@techfusionmasters/tanstack-table-adapter",
   "version": "0.1.0",
   "description": "Adapter for TanStack Table in React applications",
   "main": "dist/index.js",
