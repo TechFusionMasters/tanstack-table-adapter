@@ -10,14 +10,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w",
+    "build": "rollup -c rollup.config.mjs",            
+    "build:types": "rollup -c rollup.config.types.mjs",
+    "dev": "rollup -c rollup.config.mjs -w",           
     "test": "jest",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "clean": "rimraf dist",
     "lint": "eslint src --ext .ts,.tsx",
-    "prepare": "npm run clean && npm run build",
+    "prepare": "npm run clean && npm run build && npm run build:types",
     "prepublishOnly": "npm run lint && npm test"
   },
   "keywords": [
@@ -61,6 +62,8 @@
     "react-dom": "^18.2.0",
     "rimraf": "^6.0.1",
     "rollup": "^4.9.1",
+    "rollup-plugin-dts": "^6.2.1",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
     "storybook": "^9.0.14",
     "tailwindcss": "^4.1.11",
     "ts-jest": "^29.1.1",
