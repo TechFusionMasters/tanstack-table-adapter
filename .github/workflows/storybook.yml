@@ -37,7 +37,65 @@ jobs:
       - name: Generate TypeDoc documentation
         run: npm run docs
         
-      # Step 3: Create a simple navigation page (optional)
+      # Step 3: Create an HTML index file for the Markdown documentation
+      - name: Create HTML index for Markdown docs
+        run: |
+          cat > storybook-static/api/index.html << 'EOL'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>TanStack Table Adapter API</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+              }
+              h1 {
+                border-bottom: 1px solid #eaecef;
+                padding-bottom: 0.3em;
+              }
+              a {
+                color: #0366d6;
+                text-decoration: none;
+              }
+              a:hover {
+                text-decoration: underline;
+              }
+              .back-link {
+                margin-bottom: 20px;
+                display: inline-block;
+              }
+              .content {
+                background-color: #f6f8fa;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                padding: 20px;
+              }
+            </style>
+          </head>
+          <body>
+            <a href="../" class="back-link">← Back to Storybook</a>
+            <h1>TanStack Table Adapter API Documentation</h1>
+            <div class="content">
+              <p>This is the API documentation for the TanStack Table Adapter library.</p>
+              <p>Please navigate to the <a href="./README.md">README</a> or <a href="./modules.md">Modules</a> to start exploring the API.</p>
+              <h2>Main Documentation Files</h2>
+              <ul>
+                <li><a href="./README.md">README</a> - Overview of the library</li>
+                <li><a href="./modules.md">Modules</a> - List of all modules</li>
+              </ul>
+            </div>
+          </body>
+          </html>
+          EOL
+        
+      # Step 4: Create a simple navigation page
       - name: Create navigation page
         run: |
           echo '<!DOCTYPE html>
@@ -61,6 +119,12 @@ jobs:
           </body>
           </html>' > storybook-static/docs-home.html
       
+      # Add debugging step to see what files were generated
+      - name: Check TypeDoc output
+        run: |
+          echo "Files in API directory:"
+          ls -la storybook-static/api/
+          
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
