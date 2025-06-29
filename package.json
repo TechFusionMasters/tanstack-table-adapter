@@ -1,0 +1,70 @@
+{
+  "name": "@TechFusionMasters/tanstack-table-adapter",
+  "version": "0.1.0",
+  "description": "Adapter for TanStack Table in React applications",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "test": "jest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "npm run clean && npm run build",
+    "prepublishOnly": "npm run lint && npm test"
+  },
+  "keywords": [
+    "tanstack",
+    "table",
+    "adapter",
+    "react-table",
+    "typescript"
+  ],
+  "author": "TechFusionMasters",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TechFusionMasters/tanstack-table-adapter.git"
+  },
+  "peerDependencies": {
+    "@tanstack/react-table": "^8.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@storybook/addon-docs": "^9.0.14",
+    "@storybook/react-vite": "^9.0.14",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@tanstack/react-table": "^8.21.3",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/jest": "^29.5.11",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "postcss": "^8.5.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.9.1",
+    "storybook": "^9.0.14",
+    "tailwindcss": "^4.1.11",
+    "ts-jest": "^29.1.1",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  }
+}

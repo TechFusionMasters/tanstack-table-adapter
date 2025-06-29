@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",                    // A bit more conservative than ES2020 for wider compatibility
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "jsx": "react-jsx",
+    "declaration": true,                   // Generates .d.ts files
+    "declarationDir": "./dist/types",      // Output directory for type declarations
+    "sourceMap": true,                     // Generate source maps for debugging
+    "outDir": "./dist",                    // Output directory for compiled files
+    "esModuleInterop": true,               // Add this for better interop with CommonJS
+    "allowSyntheticDefaultImports": true,
+    "importHelpers": true,                 // Use tslib to reduce bundle size
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitAny": true,                 // Additional type safety
+    "noUnusedLocals": true,                // Enforce cleaner code
+    "noUnusedParameters": true,            // Enforce cleaner code
+    "noImplicitReturns": true,             // Additional type safety
+    "noFallthroughCasesInSwitch": true     // Additional type safety
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "stories", "**/*.stories.tsx", "**/*.test.tsx", "docs"]
+}
