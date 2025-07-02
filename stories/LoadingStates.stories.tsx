@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { TableAdapter, TableWithLoadingStates } from "../src"; // Adjust import path as needed
 import { columns, smallDataSet, mediumDataSet, Person } from "./mockData";
+import { ColumnDef } from "@tanstack/react-table";
 
 /**
  * This file demonstrates the different loading states available in the TableAdapter component.
@@ -44,10 +45,9 @@ type Story = StoryObj<typeof TableAdapter<Person>>;
 export const BasicLoading: Story = {
   args: {
     data: [],
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     isLoading: true,
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
   },
 };
 
@@ -57,9 +57,8 @@ export const BasicLoading: Story = {
 export const PaginationLoading: Story = {
   args: {
     data: mediumDataSet,
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     enablePagination: true,
     isPaginationLoading: true,
   },
@@ -71,9 +70,8 @@ export const PaginationLoading: Story = {
 export const OverlayLoading: Story = {
   args: {
     data: smallDataSet,
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     isLoading: true,
     showOverlayLoading: true,
   },
@@ -85,9 +83,8 @@ export const OverlayLoading: Story = {
 export const CustomLoadingComponents: Story = {
   args: {
     data: smallDataSet,
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     isLoading: true,
     loadingComponent: (
       <div className="flex flex-col items-center justify-center h-24">
@@ -174,9 +171,8 @@ export const LoadingStateTransitions: Story = {
     );
   },
   args: {
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     enablePagination: true,
     pageSize: 10,
   },
@@ -231,9 +227,8 @@ export const TableWithLoadingStatesWrapper: Story = {
     );
   },
   args: {
-    columns: columns,
+    columns: columns as ColumnDef<Person>[],
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     enablePagination: true,
     pageSize: 10,
   },

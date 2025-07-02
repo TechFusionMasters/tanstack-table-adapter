@@ -1,6 +1,6 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { TableAdapter } from "../src"; // Adjust import path as needed
+import { TableAdapter } from "../src";
 import {
   columns,
   smallDataSet,
@@ -39,10 +39,6 @@ const meta: Meta<typeof TableAdapter<Person>> = {
     className: {
       control: "text",
       description: "CSS class for the wrapper div",
-    },
-    tableClassName: {
-      control: "text",
-      description: "CSS class for the table element",
     },
     enablePagination: {
       control: "boolean",
@@ -84,9 +80,11 @@ type Story = StoryObj<typeof TableAdapter<Person>>;
 export const Basic: Story = {
   args: {
     data: smallDataSet,
-    columns: columns,
+    columns: columns as any,
     className: "w-full max-w-4xl",
-    tableClassName: "min-w-full divide-y divide-gray-200",
+    classNames: {
+      table: "min-w-full divide-y divide-gray-200",
+    },
   },
 };
 
