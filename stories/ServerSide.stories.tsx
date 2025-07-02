@@ -68,7 +68,7 @@ export const ServerSidePagination: Story = {
 
         <TableAdapter
           data={data}
-          columns={columns}
+          columns={columns as any}
           pageCount={Math.ceil(totalRows / pagination.pageSize)}
           manualPagination={true}
           enablePagination={true}
@@ -76,6 +76,62 @@ export const ServerSidePagination: Story = {
           pageSize={pagination.pageSize}
           onPaginationChange={setPagination}
           isLoading={isLoading}
+          totalRowCount={totalRows}
+          className="w-full"
+        />
+      </div>
+    );
+  },
+};
+
+/**
+ * A table with server-side pagination (no loader).
+ */
+export const ServerSidePaginationNoLoader: Story = {
+  render: () => {
+    const [data, setData] = useState<Person[]>([]);
+    const [pagination, setPagination] = useState<PaginationState>({
+      pageIndex: 0,
+      pageSize: 10,
+    });
+    const [totalRows, setTotalRows] = useState(0);
+
+    // Simulate a server-side API call (no loading state)
+    useEffect(() => {
+      // Simulate API delay
+      const timer = setTimeout(() => {
+        const startIndex = pagination.pageIndex * pagination.pageSize;
+        const endIndex = startIndex + pagination.pageSize;
+        const paginatedData = hugeDataSet.slice(startIndex, endIndex);
+
+        setData(paginatedData);
+        setTotalRows(hugeDataSet.length);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }, [pagination.pageIndex, pagination.pageSize]);
+
+    return (
+      <div className="w-full max-w-4xl">
+        <div className="bg-gray-50 p-4 mb-4 rounded text-sm">
+          <p>
+            This example demonstrates server-side pagination{" "}
+            <b>without any loader</b>.
+          </p>
+          <p>Current page: {pagination.pageIndex + 1}</p>
+          <p>Page size: {pagination.pageSize}</p>
+          <p>Total rows: {totalRows}</p>
+        </div>
+
+        <TableAdapter
+          data={data}
+          columns={columns as any}
+          pageCount={Math.ceil(totalRows / pagination.pageSize)}
+          manualPagination={true}
+          enablePagination={true}
+          pageIndex={pagination.pageIndex}
+          pageSize={pagination.pageSize}
+          onPaginationChange={setPagination}
           totalRowCount={totalRows}
           className="w-full"
         />
@@ -165,7 +221,7 @@ export const ServerSidePaginationAndSorting: Story = {
 
         <TableAdapter
           data={data}
-          columns={columns}
+          columns={columns as any}
           pageCount={Math.ceil(totalRows / pagination.pageSize)}
           manualPagination={true}
           manualSorting={true}
@@ -287,7 +343,7 @@ export const ServerSideComplete: Story = {
 
         <TableAdapter
           data={data}
-          columns={columns}
+          columns={columns as any}
           pageCount={Math.ceil(totalRows / pagination.pageSize)}
           manualPagination={true}
           manualSorting={true}

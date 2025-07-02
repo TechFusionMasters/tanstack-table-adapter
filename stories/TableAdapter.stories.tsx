@@ -148,18 +148,33 @@ export const WithGlobalFilter: Story = {
 export const WithRowSelection: Story = {
   render: (args) => {
     const [rowSelection, setRowSelection] = React.useState({});
+    // Get selected rows' data
+    const selectedRows = React.useMemo(() => {
+      if (!args.data) return [];
+      return Object.keys(rowSelection)
+        .map((rowId) => args.data[parseInt(rowId, 10)])
+        .filter(Boolean);
+    }, [rowSelection, args.data]);
 
     return (
       <div className="space-y-4 w-full max-w-4xl">
+        <style>{`.selected { background-color: #dbeafe !important; }`}</style>
         <div className="p-4 bg-gray-50 rounded">
           <p className="text-sm text-gray-700">
             Selected rows: {Object.keys(rowSelection).length}
           </p>
+          <pre className="text-xs bg-gray-100 rounded p-2 mt-2 overflow-x-auto">
+            {JSON.stringify(selectedRows, null, 2)}
+          </pre>
         </div>
         <TableAdapter
           {...args}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
+          classNames={{
+            ...args.classNames,
+            tbodyRow: "transition-colors",
+          }}
         />
       </div>
     );
@@ -188,7 +203,7 @@ export const WithRowSelection: Story = {
         ),
         size: 40,
       },
-      ...columns,
+      ...(columns as any),
     ],
   },
 };
@@ -248,10 +263,9 @@ export const CompleteExample: Story = {
         ),
         size: 40,
       },
-      ...columns,
+      ...(columns as any),
     ],
     className: "w-full",
-    tableClassName: "min-w-full divide-y divide-gray-200",
     enablePagination: true,
     enableSorting: true,
     enableMultiSort: true,
