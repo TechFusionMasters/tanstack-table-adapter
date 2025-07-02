@@ -61,6 +61,7 @@ export const PaginationLoading: Story = {
     className: "w-full max-w-4xl",
     enablePagination: true,
     isPaginationLoading: true,
+    totalRowCount: mediumDataSet.length,
   },
 };
 
@@ -159,6 +160,7 @@ export const LoadingStateTransitions: Story = {
           isLoading={isLoading}
           isPaginationLoading={isPaginationLoading}
           pageIndex={currentPage}
+          totalRowCount={mediumDataSet.length}
           onPaginationChange={(updater) => {
             const newState =
               typeof updater === "function"
@@ -221,7 +223,11 @@ export const TableWithLoadingStatesWrapper: Story = {
           isInitialLoading={isLoading}
           isPaginationLoading={isPaginationLoading}
         >
-          <TableAdapter {...args} data={isLoading ? [] : mediumDataSet} />
+          <TableAdapter
+            {...args}
+            data={isLoading ? [] : mediumDataSet}
+            totalRowCount={mediumDataSet.length}
+          />
         </TableWithLoadingStates>
       </div>
     );

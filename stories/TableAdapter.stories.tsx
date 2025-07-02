@@ -97,6 +97,7 @@ export const WithPagination: Story = {
     data: mediumDataSet,
     enablePagination: true,
     pageSize: 10,
+    totalRowCount: mediumDataSet.length,
   },
 };
 
@@ -272,5 +273,6 @@ export const CompleteExample: Story = {
     enableGlobalFilter: true,
     enableRowSelection: true,
     pageSize: 15,
+    totalRowCount: largeDataSet.length,
   },
 };
