@@ -1,0 +1,2832 @@
+// ---- File: \Projects\tanstack-table-adapter\src\hooks.ts ----
+import { useState, useCallback, useEffect, useMemo } from "react";
+import {
+  ColumnDef,
+  PaginationState,
+  SortingState,
+  ColumnFiltersState,
+  VisibilityState,
+  RowSelectionState,
+  ExpandedState,
+  Table,
+  OnChangeFn,
+  ColumnPinningState,
+} from "@tanstack/react-table";
+import { createControlledHandler, exportToCSV } from "./utils";
+import { TableAdapterProps, TableExportOptions, TableServer } from "./types";
+
+// Custom hook for managed table state with controlled/uncontrolled pattern
+export function useTableState<TData extends object, TValue = unknown>(
+  props: TableAdapterProps<TData, TValue>
+) {
+  // Initialize states with defaults or provided values
+  const initialPageSize =
+    props.state?.pagination?.pageSize ?? props.pageSize ?? 10;
+  const initialPageIndex =
+    props.state?.pagination?.pageIndex ?? props.pageIndex ?? 0;
+  const initialSorting = props.state?.sorting ?? props.sorting ?? [];
+  const initialColumnFilters =
+    props.state?.columnFilters ?? props.columnFilters ?? [];
+  const initialGlobalFilter =
+    props.state?.globalFilter ?? props.globalFilter ?? "";
+  const initialColumnVisibility =
+    props.state?.columnVisibility ?? props.columnVisibility ?? {};
+  const initialRowSelection =
+    props.state?.rowSelection ?? props.rowSelection ?? {};
+  const initialExpanded = props.state?.expanded ?? props.expanded ?? {};
+  const initialColumnOrder =
+    props.state?.columnOrder ?? props.columnOrder ?? [];
+  const initialColumnPinning = props.state?.columnPinning ??
+    props.columnPinning ?? { left: [], right: [] };
+  const initialGrouping = props.state?.grouping ?? props.grouping ?? [];
+
+  // Internal state for uncontrolled mode
+  const [paginationState, setPaginationState] = useState<PaginationState>({
+    pageIndex: initialPageIndex,
+    pageSize: initialPageSize,
+  });
+  const [sortingState, setSortingState] =
+    useState<SortingState>(initialSorting);
+  const [columnFiltersState, setColumnFiltersState] =
+    useState<ColumnFiltersState>(initialColumnFilters);
+  const [globalFilterState, setGlobalFilterState] =
+    useState<string>(initialGlobalFilter);
+  const [columnVisibilityState, setColumnVisibilityState] =
+    useState<VisibilityState>(initialColumnVisibility);
+  const [rowSelectionState, setRowSelectionState] =
+    useState<RowSelectionState>(initialRowSelection);
+  const [expandedState, setExpandedState] =
+    useState<ExpandedState>(initialExpanded);
+  const [columnOrderState, setColumnOrderState] =
+    useState<string[]>(initialColumnOrder);
+  const [columnPinningState, setColumnPinningState] =
+    useState<ColumnPinningState>(initialColumnPinning || {});
+  const [groupingState, setGroupingState] = useState<string[]>(initialGrouping);
+
+  // Extract handlers from props (grouped or legacy)
+  const onPaginationChange =
+    props.onStateChange?.onPaginationChange ?? props.onPaginationChange;
+  const onSortingChange =
+    props.onStateChange?.onSortingChange ?? props.onSortingChange;
+  const onColumnFiltersChange =
+    props.onStateChange?.onColumnFiltersChange ?? props.onColumnFiltersChange;
+  const onGlobalFilterChange =
+    props.onStateChange?.onGlobalFilterChange ?? props.onGlobalFilterChange;
+  const onColumnVisibilityChange =
+    props.onStateChange?.onColumnVisibilityChange ??
+    props.onColumnVisibilityChange;
+  const onRowSelectionChange =
+    props.onStateChange?.onRowSelectionChange ?? props.onRowSelectionChange;
+  const onExpandedChange =
+    props.onStateChange?.onExpandedChange ?? props.onExpandedChange;
+  const onColumnOrderChange =
+    props.onStateChange?.onColumnOrderChange ?? props.onColumnOrderChange;
+  const onColumnPinningChange =
+    props.onStateChange?.onColumnPinningChange ?? props.onColumnPinningChange;
+  const onGroupingChange =
+    props.onStateChange?.onGroupingChange ?? props.onGroupingChange;
+
+  // Determine if component is controlled or uncontrolled
+  const isControlled = {
+    pagination: !!onPaginationChange,
+    sorting: !!onSortingChange,
+    columnFilters: !!onColumnFiltersChange,
+    globalFilter: !!onGlobalFilterChange,
+    columnVisibility: !!onColumnVisibilityChange,
+    rowSelection: !!onRowSelectionChange,
+    expanded: !!onExpandedChange,
+    columnOrder: !!onColumnOrderChange,
+    columnPinning: !!onColumnPinningChange,
+    grouping: !!onGroupingChange,
+  };
+
+  // Get current values (from props if controlled, or internal state if uncontrolled)
+  const currentPagination = isControlled.pagination
+    ? { pageIndex: initialPageIndex, pageSize: initialPageSize }
+    : paginationState;
+  const currentSorting = isControlled.sorting ? initialSorting : sortingState;
+  const currentColumnFilters = isControlled.columnFilters
+    ? initialColumnFilters
+    : columnFiltersState;
+  const currentGlobalFilter = isControlled.globalFilter
+    ? initialGlobalFilter
+    : globalFilterState;
+  const currentColumnVisibility = isControlled.columnVisibility
+    ? initialColumnVisibility
+    : columnVisibilityState;
+  const currentRowSelection = isControlled.rowSelection
+    ? initialRowSelection
+    : rowSelectionState;
+  const currentExpanded = isControlled.expanded
+    ? initialExpanded
+    : expandedState;
+  const currentColumnOrder = isControlled.columnOrder
+    ? initialColumnOrder
+    : columnOrderState;
+  const currentColumnPinning = isControlled.columnPinning
+    ? initialColumnPinning
+    : columnPinningState;
+  const currentGrouping = isControlled.grouping
+    ? initialGrouping
+    : groupingState;
+
+  // Create controlled handlers using factory function
+  const handlePaginationChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.pagination,
+        onPaginationChange,
+        setPaginationState,
+        () => currentPagination
+      ),
+    [isControlled.pagination, onPaginationChange, currentPagination]
+  );
+
+  const handleSortingChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.sorting,
+        onSortingChange,
+        setSortingState,
+        () => currentSorting
+      ),
+    [isControlled.sorting, onSortingChange, currentSorting]
+  );
+
+  const handleColumnFiltersChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.columnFilters,
+        onColumnFiltersChange,
+        setColumnFiltersState,
+        () => currentColumnFilters
+      ),
+    [isControlled.columnFilters, onColumnFiltersChange, currentColumnFilters]
+  );
+
+  const handleGlobalFilterChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.globalFilter,
+        onGlobalFilterChange,
+        setGlobalFilterState,
+        () => currentGlobalFilter
+      ),
+    [isControlled.globalFilter, onGlobalFilterChange, currentGlobalFilter]
+  );
+
+  const handleColumnVisibilityChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.columnVisibility,
+        onColumnVisibilityChange,
+        setColumnVisibilityState,
+        () => currentColumnVisibility
+      ),
+    [
+      isControlled.columnVisibility,
+      onColumnVisibilityChange,
+      currentColumnVisibility,
+    ]
+  );
+
+  const handleRowSelectionChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.rowSelection,
+        onRowSelectionChange,
+        setRowSelectionState,
+        () => currentRowSelection
+      ),
+    [isControlled.rowSelection, onRowSelectionChange, currentRowSelection]
+  );
+
+  const handleExpandedChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.expanded,
+        onExpandedChange,
+        setExpandedState,
+        () => currentExpanded
+      ),
+    [isControlled.expanded, onExpandedChange, currentExpanded]
+  );
+
+  const handleColumnOrderChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.columnOrder,
+        onColumnOrderChange,
+        setColumnOrderState,
+        () => currentColumnOrder
+      ),
+    [isControlled.columnOrder, onColumnOrderChange, currentColumnOrder]
+  );
+
+  const handleColumnPinningChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.columnPinning,
+        onColumnPinningChange,
+        setColumnPinningState,
+        () => currentColumnPinning
+      ),
+    [isControlled.columnPinning, onColumnPinningChange, currentColumnPinning]
+  );
+
+  const handleGroupingChange = useMemo(
+    () =>
+      createControlledHandler(
+        isControlled.grouping,
+        onGroupingChange,
+        setGroupingState,
+        () => currentGrouping
+      ),
+    [isControlled.grouping, onGroupingChange, currentGrouping]
+  );
+
+  return {
+    // Current state values
+    currentPagination,
+    currentSorting,
+    currentColumnFilters,
+    currentGlobalFilter,
+    currentColumnVisibility,
+    currentRowSelection,
+    currentExpanded,
+    currentColumnOrder,
+    currentColumnPinning,
+    currentGrouping,
+
+    // State handlers
+    handlePaginationChange,
+    handleSortingChange,
+    handleColumnFiltersChange,
+    handleGlobalFilterChange,
+    handleColumnVisibilityChange,
+    handleRowSelectionChange,
+    handleExpandedChange,
+    handleColumnOrderChange,
+    handleColumnPinningChange,
+    handleGroupingChange,
+  };
+}
+
+// Custom hook for server-side data fetching
+export function useServerSideData<TData extends object>(
+  table: Table<TData>,
+  serverOptions?: TableServer,
+  onError?: (error: Error) => void
+) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [data, setData] = useState<TData[]>([]);
+  const [pageCount, setPageCount] = useState(0);
+  const [totalRowCount, setTotalRowCount] = useState(0);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(
+    async (force = false) => {
+      // Skip if no fetch function provided
+      if (!serverOptions?.fetchData) {
+        return;
+      }
+
+      // Extract current state from table
+      const { pagination, sorting, columnFilters, globalFilter } =
+        table.getState();
+
+      // If any of these are being manually handled, fetch data
+      if (
+        serverOptions.manualPagination ||
+        serverOptions.manualSorting ||
+        serverOptions.manualFiltering ||
+        force
+      ) {
+        try {
+          setIsLoading(true);
+          setError(null);
+
+          // Call fetch function with current state
+          const result = await serverOptions.fetchData({
+            pagination,
+            sorting,
+            filters: columnFilters,
+            globalFilter,
+          });
+
+          // Update state with fetched data
+          setData(result.data as TData[]);
+          setPageCount(result.pageCount);
+          if (result.totalRowCount !== undefined) {
+            setTotalRowCount(result.totalRowCount);
+          }
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          setError(error);
+          if (onError) {
+            onError(error);
+          }
+          if (serverOptions.onFetchError) {
+            serverOptions.onFetchError(error);
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    },
+    [table, serverOptions, onError]
+  );
+
+  // Effect to fetch data when relevant state changes
+  useEffect(() => {
+    fetchData();
+  }, [
+    fetchData,
+    table.getState().pagination.pageIndex,
+    table.getState().pagination.pageSize,
+    table.getState().sorting,
+    table.getState().columnFilters,
+    table.getState().globalFilter,
+  ]);
+
+  return {
+    isLoading,
+    data,
+    pageCount,
+    totalRowCount,
+    error,
+    fetchData,
+  };
+}
+
+// Custom hook for CSV/Excel export functionality
+export function useTableExport<TData extends object, TValue = unknown>(
+  data: TData[],
+  columns: ColumnDef<TData, TValue>[],
+  options?: TableExportOptions
+) {
+  // Export to CSV
+  const exportToCSVFile = useCallback(
+    (customOptions?: Partial<TableExportOptions>) => {
+      const mergedOptions = { ...options, ...customOptions };
+      exportToCSV(data, columns, {
+        filename: mergedOptions?.fileName || "export.csv",
+        includeHiddenColumns: mergedOptions?.includeHiddenColumns,
+        exportSelection: mergedOptions?.exportSelection,
+        customFormatter: mergedOptions?.customFormatter,
+      });
+    },
+    [data, columns, options]
+  );
+
+  // Export to JSON
+  const exportToJSON = useCallback(
+    (customOptions?: Partial<TableExportOptions>) => {
+      const mergedOptions = { ...options, ...customOptions };
+      const filename = mergedOptions?.fileName || "export.json";
+
+      // Convert data to JSON
+      const jsonString = JSON.stringify(data, null, 2);
+
+      // Create download link
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    [data, options]
+  );
+
+  // Export handler that chooses format based on options
+  const handleExport = useCallback(
+    (format?: string, customOptions?: Partial<TableExportOptions>) => {
+      const exportFormat = format || options?.formats?.[0] || "csv";
+
+      switch (exportFormat.toLowerCase()) {
+        case "json":
+          exportToJSON(customOptions);
+          break;
+        case "xlsx":
+          // XLSX export would require a library like exceljs or xlsx
+          console.warn(
+            "XLSX export requires additional libraries. Please implement this based on your needs."
+          );
+          break;
+        case "csv":
+        default:
+          exportToCSVFile(customOptions);
+          break;
+      }
+    },
+    [exportToCSVFile, exportToJSON, options]
+  );
+
+  return {
+    exportToCSV: exportToCSVFile,
+    exportToJSON,
+    handleExport,
+  };
+}
+
+// Custom hook for form integration
+export function useTableForm<TData extends object>(
+  initialData: TData[],
+  onSubmit?: (data: TData[]) => void,
+  validationRules?: Record<string, (value: any, row: TData) => string | null>
+) {
+  const [formData, setFormData] = useState<TData[]>(initialData);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Update form data when initialData changes
+  useEffect(() => {
+    setFormData(initialData);
+    setIsDirty(false);
+  }, [initialData]);
+
+  // Handle cell value change
+  const handleCellChange = useCallback(
+    (rowIndex: number, columnId: string, value: unknown) => {
+      setFormData((prevData) => {
+        const newData = [...prevData];
+
+        // Helper to update nested properties
+        const updateNestedProperty = (obj: any, path: string, value: any) => {
+          const parts = path.split(".");
+          const lastProp = parts.pop()!;
+          let current = obj;
+
+          // Navigate to the right object
+          for (const part of parts) {
+            if (!(part in current)) {
+              current[part] = {};
+            }
+            current = current[part];
+          }
+
+          // Update the value
+          current[lastProp] = value;
+        };
+
+        updateNestedProperty(newData[rowIndex], columnId, value);
+        return newData;
+      });
+
+      setIsDirty(true);
+
+      // Validate if rules exist
+      if (validationRules && validationRules[columnId]) {
+        const rule = validationRules[columnId];
+        const error = rule(value, formData[rowIndex]);
+
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev };
+          const rowErrors = { ...(newErrors[rowIndex] || {}) };
+
+          if (error) {
+            rowErrors[columnId] = error;
+          } else {
+            delete rowErrors[columnId];
+          }
+
+          if (Object.keys(rowErrors).length > 0) {
+            newErrors[rowIndex] = rowErrors;
+          } else {
+            delete newErrors[rowIndex];
+          }
+
+          return newErrors;
+        });
+      }
+    },
+    [formData, validationRules]
+  );
+
+  // Handle form submission
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      if (e) {
+        e.preventDefault();
+      }
+
+      // Check for validation errors
+      if (Object.keys(validationErrors).length > 0) {
+        return false;
+      }
+
+      if (onSubmit) {
+        onSubmit(formData);
+      }
+
+      setIsDirty(false);
+      return true;
+    },
+    [formData, validationErrors, onSubmit]
+  );
+
+  // Reset form to initial data
+  const resetForm = useCallback(() => {
+    setFormData(initialData);
+    setValidationErrors({});
+    setIsDirty(false);
+  }, [initialData]);
+
+  return {
+    formData,
+    validationErrors,
+    isDirty,
+    handleCellChange,
+    handleSubmit,
+    resetForm,
+  };
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\index.ts ----
+// Main TableAdapter component
+export { TableAdapter } from "./TableAdapter";
+export { TableWithLoadingStates } from "./TableWithLoadingStates";
+// UI Components
+export { DefaultPaginationComponent } from "./components";
+export { GlobalFilterInput, ColumnVisibilityToggle } from "./helpers";
+
+// Utilities
+export {
+  exportToCSV,
+  fuzzyFilter,
+  mergeClassNames,
+  DEFAULT_TABLE_CLASSNAMES,
+} from "./utils";
+
+// Context and hooks
+export {
+  TableConfigProvider,
+  useTableConfig,
+  useDefaultTableClassNames,
+} from "./TableConfigContext";
+
+// Types
+export type {
+  TableAdapterProps,
+  DefaultTableClassNames,
+  TableClassNames,
+  TableConfig,
+} from "./types";
+
+// ---- File: \Projects\tanstack-table-adapter\src\types.ts ----
+import React from "react";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  Table as TanStackTable,
+  RowSelectionState,
+  ColumnResizeMode,
+  PaginationState,
+  ExpandedState,
+  OnChangeFn,
+  FilterFn,
+  Row,
+  RowData,
+  ColumnPinningState,
+  ColumnPinningPosition,
+} from "@tanstack/react-table";
+
+// Default className configuration
+export type DefaultTableClassNames = {
+  table: string;
+  thead: string;
+  theadRow: string;
+  theadCell: string;
+  tbody: string;
+  tbodyRow: string;
+  tbodyCell: string;
+  header: string;
+  body: string;
+};
+
+// Component-level className overrides
+export type TableClassNames = Partial<DefaultTableClassNames>;
+
+// Global configuration context
+export type TableConfig = {
+  defaultClassNames: DefaultTableClassNames;
+  setDefaultClassNames: (classNames: Partial<DefaultTableClassNames>) => void;
+};
+
+// Group feature flags together
+export type TableFeatures = {
+  pagination?: boolean;
+  sorting?: boolean;
+  multiSort?: boolean;
+  columnFilters?: boolean;
+  globalFilter?: boolean;
+  columnResizing?: boolean;
+  rowSelection?: boolean;
+  expanding?: boolean;
+  columnOrdering?: boolean;
+  pinning?: boolean;
+  stickyHeader?: boolean;
+  grouping?: boolean;
+  formMode?: boolean;
+  virtualization?: boolean;
+  sortingRemoval?: boolean;
+};
+
+// Group styling props together
+export type TableStyling = {
+  className?: string;
+  classNames?: TableClassNames;
+  columnResizeMode?: ColumnResizeMode;
+  style?: React.CSSProperties;
+  headerStyle?: React.CSSProperties;
+  rowStyle?: React.CSSProperties | ((row: Row<any>) => React.CSSProperties);
+  cellStyle?:
+    | React.CSSProperties
+    | ((row: Row<any>, columnId: string) => React.CSSProperties);
+};
+
+// Group loading state props
+export type TableLoading = {
+  isLoading?: boolean;
+  isPaginationLoading?: boolean;
+  isSortingLoading?: boolean;
+  isFilteringLoading?: boolean;
+  isExportLoading?: boolean;
+  showOverlayLoading?: boolean;
+  loadingComponent?: React.ReactNode;
+  paginationLoadingComponent?: React.ReactNode;
+};
+
+// Group server-side props
+export type TableServer = {
+  manualPagination?: boolean;
+  manualSorting?: boolean;
+  manualFiltering?: boolean;
+  manualGrouping?: boolean;
+  pageCount?: number;
+  autoResetPageIndex?: boolean;
+  fetchData?: <TData extends object>(options: {
+    pagination: PaginationState;
+    sorting: SortingState;
+    filters: ColumnFiltersState;
+    globalFilter: string;
+  }) => Promise<{
+    data: TData[];
+    pageCount: number;
+    totalRowCount?: number;
+  }>;
+  onFetchError?: (error: Error) => void;
+};
+
+// Group accessibility props
+export type TableAccessibility = {
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
+  ariaRowCount?: boolean;
+  ariaColumnCount?: boolean;
+  ariaLiveRegion?: boolean;
+  keyboardNavigation?: boolean;
+};
+
+// Group animation props
+export type TableAnimations = {
+  enableAnimations?: boolean;
+  rowAnimationDuration?: number;
+  sortAnimationDuration?: number;
+  expandAnimationDuration?: number;
+  // Plugin options - consumer can use any animation library
+  animationLib?: "css" | "framer-motion" | "react-spring" | string;
+  customAnimationProps?: Record<string, any>;
+};
+
+// Group virtualization props
+export type TableVirtualization = {
+  rowHeight?: number;
+  visibleRows?: number;
+  // Plugin options - consumer can use any virtualization library
+  virtualizationLib?:
+    | "react-window"
+    | "react-virtualized"
+    | "tanstack-virtual"
+    | string;
+  customVirtualizationProps?: Record<string, any>;
+};
+
+// Group export options
+export type TableExportOptions = {
+  formats?: ("csv" | "xlsx" | "json")[];
+  fileName?: string;
+  includeHiddenColumns?: boolean;
+  exportSelection?: boolean;
+  customFormatter?: (data: any, columnId: string) => string;
+};
+
+// Group form integration props
+export type TableFormIntegration<TData> = {
+  onRowsChange?: (updatedData: TData[]) => void;
+  onSubmit?: (data: TData[]) => void;
+  validationRules?: Record<string, (value: any, row: TData) => string | null>;
+  showValidationErrors?: boolean;
+  renderValidationError?: (error: string) => React.ReactNode;
+  // Plugin options - consumer can use any form library
+  formLib?: "react-hook-form" | "formik" | string;
+  customFormProps?: Record<string, any>;
+};
+
+// Group render props
+export type TableRender<TData> = {
+  renderTableHeader?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderTableFooter?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderPagination?: (props: {
+    table: TanStackTable<TData>;
+    totalRowCount?: number;
+    isLoading?: boolean;
+    pageSizeOptions?: number[];
+  }) => React.ReactNode;
+  renderNoResults?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderExpanded?: (row: Row<TData>) => React.ReactNode;
+  renderRowSubComponent?: (row: Row<TData>) => React.ReactNode;
+  renderGroupedCell?: (info: {
+    row: Row<TData>;
+    cell: any;
+    groupedByKey: string;
+  }) => React.ReactNode;
+  renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+  renderError?: (error: Error) => React.ReactNode;
+};
+
+// Group state props
+export type TableState = {
+  pagination?: PaginationState;
+  sorting?: SortingState;
+  columnFilters?: ColumnFiltersState;
+  globalFilter?: string;
+  columnVisibility?: VisibilityState;
+  rowSelection?: RowSelectionState;
+  expanded?: ExpandedState;
+  columnOrder?: string[];
+  columnPinning?: ColumnPinningState;
+  grouping?: string[];
+};
+
+// Group state change handlers
+export type TableStateHandlers<TData> = {
+  onPaginationChange?: OnChangeFn<PaginationState>;
+  onSortingChange?: OnChangeFn<SortingState>;
+  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
+  onGlobalFilterChange?: OnChangeFn<string>;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  onExpandedChange?: OnChangeFn<ExpandedState>;
+  onColumnOrderChange?: OnChangeFn<string[]>;
+  onColumnPinningChange?: OnChangeFn<ColumnPinningState>;
+  onGroupingChange?: OnChangeFn<string[]>;
+  onCellEdit?: (rowIndex: number, columnId: string, value: unknown) => void;
+};
+
+// Group event handlers
+export type TableEventHandlers<TData> = {
+  onRowClick?: (row: Row<TData>) => void;
+  onCellClick?: (row: Row<TData>, columnId: string) => void;
+  onExportData?: (data: TData[], options?: TableExportOptions) => void;
+  onError?: (error: Error) => void;
+};
+
+// Main TableAdapter props with grouped structure
+export type TableAdapterProps<TData extends object, TValue = unknown> = {
+  // Core Props
+  data: TData[];
+  columns: ColumnDef<TData, TValue>[];
+  totalRowCount?: number;
+  id?: string;
+  debugTable?: boolean;
+  getRowId?: (row: TData, index: number, parent?: Row<TData>) => string;
+  error?: Error | null;
+
+  // Grouped Props
+  features?: Partial<TableFeatures>;
+  styling?: TableStyling;
+  loading?: TableLoading;
+  server?: TableServer;
+  accessibility?: TableAccessibility;
+  animations?: TableAnimations;
+  virtualization?: TableVirtualization;
+  exportOptions?: TableExportOptions;
+  formIntegration?: TableFormIntegration<TData>;
+
+  // Render Props
+  render?: TableRender<TData>;
+
+  // State Props
+  state?: TableState;
+  onStateChange?: TableStateHandlers<TData>;
+
+  // Event Handlers
+  events?: TableEventHandlers<TData>;
+
+  // Legacy Props - to maintain backward compatibility
+  // These will be mapped to the grouped props internally
+  enablePagination?: boolean;
+  enableSorting?: boolean;
+  enableMultiSort?: boolean;
+  enableColumnFilters?: boolean;
+  enableGlobalFilter?: boolean;
+  enableColumnResizing?: boolean;
+  enableRowSelection?: boolean;
+  enableExpanding?: boolean;
+  enablePinning?: boolean;
+  enableStickyHeader?: boolean;
+  enableGrouping?: boolean;
+  enableSortingRemoval?: boolean;
+
+  className?: string;
+  classNames?: TableClassNames;
+  columnResizeMode?: ColumnResizeMode;
+
+  pageSize?: number;
+  pageIndex?: number;
+  sorting?: SortingState;
+  columnFilters?: ColumnFiltersState;
+  globalFilter?: string;
+  columnVisibility?: VisibilityState;
+  rowSelection?: RowSelectionState;
+  expanded?: ExpandedState;
+  columnOrder?: string[];
+  columnPinning?: ColumnPinningState;
+  grouping?: string[];
+
+  onPaginationChange?: OnChangeFn<PaginationState>;
+  onSortingChange?: OnChangeFn<SortingState>;
+  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
+  onGlobalFilterChange?: OnChangeFn<string>;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  onExpandedChange?: OnChangeFn<ExpandedState>;
+  onColumnOrderChange?: OnChangeFn<string[]>;
+  onColumnPinningChange?: OnChangeFn<ColumnPinningState>;
+  onGroupingChange?: OnChangeFn<string[]>;
+
+  manualPagination?: boolean;
+  manualSorting?: boolean;
+  manualFiltering?: boolean;
+  manualGrouping?: boolean;
+  pageCount?: number;
+  autoResetPageIndex?: boolean;
+  globalFilterFn?: FilterFn<TData>;
+
+  renderTableHeader?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderTableFooter?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderPagination?: (props: {
+    table: TanStackTable<TData>;
+    totalRowCount?: number;
+    isLoading?: boolean;
+    pageSizeOptions?: number[];
+  }) => React.ReactNode;
+  renderNoResults?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderExpanded?: (row: Row<TData>) => React.ReactNode;
+  renderRowSubComponent?: (row: Row<TData>) => React.ReactNode;
+  renderGroupedCell?: (info: {
+    row: Row<TData>;
+    cell: any;
+    groupedByKey: string;
+  }) => React.ReactNode;
+
+  onRowClick?: (row: Row<TData>) => void;
+  onCellClick?: (row: Row<TData>, columnId: string) => void;
+  onExportData?: (data: TData[]) => void;
+
+  isLoading?: boolean;
+  isPaginationLoading?: boolean;
+  loadingComponent?: React.ReactNode;
+  paginationLoadingComponent?: React.ReactNode;
+  showOverlayLoading?: boolean;
+
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
+
+  pageSizeOptions?: number[];
+
+  renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+};
+
+// Extend the ColumnMeta interface to include custom properties
+declare module "@tanstack/react-table" {
+  interface TableMeta<TData extends RowData> {
+    updateData?: (rowIndex: number, columnId: string, value: unknown) => void;
+    exportData?: () => void;
+  }
+
+  interface ColumnMeta<TData extends RowData, TValue> {
+    headerClassName?: string;
+    headerStyle?: React.CSSProperties;
+    cellClassName?: string;
+    cellStyle?: React.CSSProperties;
+  }
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\utils.ts ----
+import React from "react";
+import { ColumnDef, FilterFn } from "@tanstack/react-table";
+import {
+  DefaultTableClassNames,
+  TableAdapterProps,
+  TableFeatures,
+} from "./types";
+
+// Utility filter functions
+export const fuzzyFilter: FilterFn<any> = (row, columnId, value) => {
+  // Skip if no value is provided
+  if (!value || value === "") return true;
+
+  const getValue = (obj: any, path: string): any => {
+    const pathParts = path.split(".");
+    let current = obj;
+    for (const part of pathParts) {
+      if (current === null || current === undefined) return null;
+      current = current[part];
+    }
+    return current;
+  };
+
+  const itemValue = getValue(row.original, columnId);
+
+  // Skip if the value is null or undefined
+  if (itemValue === null || itemValue === undefined) return false;
+
+  // Convert to string for comparison
+  const itemStr = String(itemValue).toLowerCase();
+  const searchStr = String(value).toLowerCase();
+
+  return itemStr.includes(searchStr);
+};
+
+// Utility function to export table data to CSV with enhanced typing
+export const exportToCSV = <TData extends object, TValue = unknown>(
+  data: TData[],
+  columns: ColumnDef<TData, TValue>[],
+  options: {
+    filename?: string;
+    includeHiddenColumns?: boolean;
+    exportSelection?: boolean;
+    selectedRows?: Record<string, boolean>;
+    customFormatter?: (data: any, columnId: string) => string;
+  } = {}
+) => {
+  const {
+    filename = "export.csv",
+    includeHiddenColumns = false,
+    exportSelection = false,
+    selectedRows = {},
+    customFormatter,
+  } = options;
+
+  // Filter data if exporting only selected rows
+  const dataToExport = exportSelection
+    ? data.filter((_, index) => selectedRows[index])
+    : data;
+
+  // Get all leaf column headers, optionally including hidden ones
+  const leafColumns = columns.filter(
+    (col) =>
+      !("columns" in col && col.columns) &&
+      (includeHiddenColumns || col.id !== undefined)
+  );
+
+  const headers = leafColumns.map((col) => {
+    const header =
+      typeof col.header === "string"
+        ? col.header
+        : col.id || String("accessorKey" in col ? col.accessorKey : "");
+    return header;
+  });
+
+  // Format data rows
+  const rows = dataToExport.map((item) => {
+    return leafColumns.map((col) => {
+      // Get the value from the data using accessorKey or accessorFn
+      let value: any = "";
+
+      if ("accessorKey" in col && col.accessorKey) {
+        const key = String(col.accessorKey);
+        const getValue = (obj: any, path: string): any => {
+          const pathParts = path.split(".");
+          let current = obj;
+          for (const part of pathParts) {
+            if (current === null || current === undefined) return null;
+            current = current[part];
+          }
+          return current;
+        };
+        value = getValue(item, key);
+      } else if ("accessorFn" in col && col.accessorFn) {
+        value = col.accessorFn(item, 0);
+      } else if (col.id) {
+        value = (item as any)[col.id];
+      }
+
+      // Use custom formatter if provided
+      if (customFormatter && col.id) {
+        value = customFormatter(value, col.id);
+      }
+
+      // Ensure proper CSV formatting with quotes for strings
+      if (typeof value === "string") {
+        // Escape quotes and wrap in quotes
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return String(value);
+    });
+  });
+
+  // Combine headers and rows into CSV format
+  const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join(
+    "\n"
+  );
+
+  // Create download link
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url); // Clean up
+};
+
+// Export default filter function
+export { fuzzyFilter as defaultFilterFn };
+
+// Default classNames for the table components
+export const DEFAULT_TABLE_CLASSNAMES: DefaultTableClassNames = {
+  table: "min-w-full divide-y divide-gray-200",
+  thead: "bg-gray-50",
+  theadRow: "",
+  theadCell:
+    "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+  tbody: "bg-white divide-y divide-gray-200",
+  tbodyRow: "",
+  tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+  header: "bg-gray-50",
+  body: "bg-white divide-y divide-gray-200",
+};
+
+// Utility function to merge classNames with proper precedence
+export function mergeClassNames(
+  defaultClassNames: DefaultTableClassNames,
+  componentClassNames?: Partial<DefaultTableClassNames>
+): DefaultTableClassNames {
+  const merged = { ...defaultClassNames };
+
+  // Apply component-level classNames (highest priority)
+  if (componentClassNames) {
+    Object.assign(merged, componentClassNames);
+  }
+
+  return merged;
+}
+
+// Factory function for controlled/uncontrolled state handlers
+export function createControlledHandler<T>(
+  isControlled: boolean,
+  externalHandler: ((value: T) => void) | undefined,
+  internalSetter: React.Dispatch<React.SetStateAction<T>>,
+  getCurrentValue: () => T
+) {
+  return (updater: T | ((prev: T) => T)) => {
+    const newValue =
+      typeof updater === "function"
+        ? (updater as (prev: T) => T)(getCurrentValue())
+        : updater;
+
+    if (isControlled && externalHandler) {
+      externalHandler(newValue);
+    } else {
+      internalSetter(newValue);
+    }
+  };
+}
+
+// Extract feature flags from props, combining the new grouped structure with legacy props
+export function extractFeatureFlags<TData extends object, TValue>(
+  props: TableAdapterProps<TData, TValue>
+): TableFeatures {
+  // Default feature flags
+  const features: TableFeatures = {
+    pagination: true,
+    sorting: true,
+    multiSort: true,
+    columnFilters: false,
+    globalFilter: false,
+    columnResizing: false,
+    rowSelection: false,
+    expanding: false,
+    columnOrdering: false,
+    pinning: false,
+    stickyHeader: false,
+    grouping: false,
+    formMode: false,
+    virtualization: false,
+    sortingRemoval: true,
+  };
+
+  // Apply from grouped structure if provided
+  if (props.features) {
+    Object.assign(features, props.features);
+  }
+
+  // Legacy props override grouped structure for backward compatibility
+  if (props.enablePagination !== undefined)
+    features.pagination = props.enablePagination;
+  if (props.enableSorting !== undefined) features.sorting = props.enableSorting;
+  if (props.enableMultiSort !== undefined)
+    features.multiSort = props.enableMultiSort;
+  if (props.enableColumnFilters !== undefined)
+    features.columnFilters = props.enableColumnFilters;
+  if (props.enableGlobalFilter !== undefined)
+    features.globalFilter = props.enableGlobalFilter;
+  if (props.enableColumnResizing !== undefined)
+    features.columnResizing = props.enableColumnResizing;
+  if (props.enableRowSelection !== undefined)
+    features.rowSelection = props.enableRowSelection;
+  if (props.enableExpanding !== undefined)
+    features.expanding = props.enableExpanding;
+  if (props.enablePinning !== undefined) features.pinning = props.enablePinning;
+  if (props.enableStickyHeader !== undefined)
+    features.stickyHeader = props.enableStickyHeader;
+  if (props.enableGrouping !== undefined)
+    features.grouping = props.enableGrouping;
+  if (props.enableSortingRemoval !== undefined)
+    features.sortingRemoval = props.enableSortingRemoval;
+
+  return features;
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\components.tsx ----
+import { Table as TanStackTable } from "@tanstack/react-table";
+
+export const EnhancedLoadingComponent = () => (
+  <div className="flex flex-col items-center justify-center h-24">
+    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-2"></div>
+    <span className="text-sm text-gray-700 font-medium">Loading data...</span>
+  </div>
+);
+
+// Improved Default pagination loading component - replace your existing one
+export const EnhancedPaginationLoadingComponent = () => (
+  <div className="absolute inset-0 flex items-center justify-center z-10 bg-[rgba(255, 255, 255, 0.5)]">
+    <div className="flex flex-col items-center justify-center p-6 ">
+      <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-2"></div>
+      <span className="text-base font-medium text-blue-700">
+        Updating results...
+      </span>
+    </div>
+  </div>
+);
+
+// Default loading component
+export const DefaultLoadingComponent = () => (
+  <div className="flex flex-col items-center justify-center h-24 default-loading-component">
+    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-2"></div>
+    <span className="text-sm text-gray-700 font-medium">Loading data...</span>
+  </div>
+);
+
+// Improved Default pagination loading component - replace your existing one
+export const DefaultPaginationLoadingComponent = () => (
+  <div className="flex items-center justify-center z-10 bg-[rgba(255, 255, 255, 0.5)] default-pagination-loading-component">
+    <div className="flex items-center justify-center space-x-2 ">
+      <div className="animate-spin rounded-full h-6 w-6 border-4 border-blue-500 border-t-transparent"></div>
+      <span className="text-base font-medium text-blue-700">
+        Updating results...
+      </span>
+    </div>
+  </div>
+);
+
+// Default no results component
+export const DefaultNoResultsComponent = () => (
+  <tr>
+    <td>
+      <div className="flex justify-center items-center h-24 text-gray-500">
+        No results found
+      </div>
+    </td>
+  </tr>
+);
+
+// Default pagination component
+export const DefaultPaginationComponent = <TData extends object>({
+  table,
+  totalRowCount,
+  isLoading,
+  pageSizeOptions = [10, 20, 30, 40, 50],
+}: {
+  table: TanStackTable<TData>;
+  totalRowCount?: number;
+  isLoading?: boolean;
+  pageSizeOptions?: number[];
+}) => {
+  const totalRows =
+    totalRowCount !== undefined
+      ? totalRowCount
+      : table.getFilteredRowModel().rows.length;
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+      <div className="flex-1 flex justify-between sm:hidden">
+        <button
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+          className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+          className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700">
+            Showing{" "}
+            <span className="font-medium">
+              {table.getState().pagination.pageIndex *
+                table.getState().pagination.pageSize +
+                1}
+            </span>{" "}
+            to{" "}
+            <span className="font-medium">
+              {Math.min(
+                (table.getState().pagination.pageIndex + 1) *
+                  table.getState().pagination.pageSize,
+                totalRows
+              )}
+            </span>{" "}
+            of <span className="font-medium">{totalRows}</span> results
+          </p>
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage() || isLoading}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {"<<"}
+            </button>
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage() || isLoading}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {"<"}
+            </button>
+            <span className="flex items-center gap-1">
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500 mx-1"></div>
+              ) : (
+                <span>Page</span>
+              )}
+              <strong>
+                {table.getState().pagination.pageIndex + 1} of{" "}
+                {table.getPageCount()}
+              </strong>
+            </span>
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage() || isLoading}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {">"}
+            </button>
+            <button
+              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+              disabled={!table.getCanNextPage() || isLoading}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {">>"}
+            </button>
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => {
+                table.setPageSize(Number(e.target.value));
+              }}
+              disabled={isLoading}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  Show {size}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---- File: \Projects\tanstack-table-adapter\src\helpers.tsx ----
+import { Table as TanStackTable } from "@tanstack/react-table";
+
+// Helper for creating global filter input
+export const GlobalFilterInput = ({
+  value,
+  onChange,
+  placeholder = "Search...",
+  className = "px-4 py-2 border rounded",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}) => {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+// Helper for creating column visibility toggles
+export const ColumnVisibilityToggle = <TData extends object>({
+  table,
+  className = "p-2",
+}: {
+  table: TanStackTable<TData>;
+  className?: string;
+}) => {
+  return (
+    <div className={className}>
+      <div className="flex flex-wrap gap-2">
+        {table.getAllLeafColumns().map((column) => {
+          return (
+            <div key={column.id} className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={column.getIsVisible()}
+                  onChange={column.getToggleVisibilityHandler()}
+                  className="mr-1"
+                />
+                {column.id}
+              </label>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ---- File: \Projects\tanstack-table-adapter\src\TableAdapter.tsx ----
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  Table as TanStackTable,
+  RowData,
+  Row,
+} from "@tanstack/react-table";
+
+// Import types
+import {
+  TableAdapterProps,
+  TableFeatures,
+  TableStyling,
+  TableLoading,
+  TableServer,
+  TableAccessibility,
+  TableAnimations,
+  TableVirtualization,
+  TableExportOptions,
+  TableFormIntegration,
+} from "./types";
+
+// Import hooks and utilities
+import {
+  useTableState,
+  useServerSideData,
+  useTableExport,
+  useTableForm,
+} from "./hooks";
+import { mergeClassNames, extractFeatureFlags } from "./utils";
+import { useDefaultTableClassNames } from "./TableConfigContext";
+
+// Import default components
+import {
+  DefaultLoadingComponent,
+  DefaultPaginationLoadingComponent,
+  DefaultNoResultsComponent,
+  DefaultPaginationComponent,
+} from "./components";
+
+// Use React.memo for performance optimization
+// Use React.memo for performance optimization
+const TableHeader = React.memo(
+  ({
+    table,
+    headerClassName,
+    enableSorting = false,
+    enableStickyHeader = false,
+    enableColumnResizing = false,
+    renderSortIcon,
+    headerStyle,
+  }: {
+    table: TanStackTable<any>;
+    headerClassName: string;
+    enableSorting?: boolean;
+    enableStickyHeader?: boolean;
+    enableColumnResizing?: boolean;
+    renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+    headerStyle?: React.CSSProperties;
+  }) => {
+    return (
+      <thead
+        className={`${headerClassName} ${
+          enableStickyHeader ? "sticky top-0 z-10" : ""
+        }`}
+        style={headerStyle}
+      >
+        {table.getHeaderGroups().map((headerGroup) => (
+          <tr key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <th
+                key={header.id}
+                colSpan={header.colSpan}
+                className={header.column.columnDef.meta?.headerClassName || ""}
+                style={{
+                  width: header.getSize(),
+                  position: "relative",
+                  ...(header.column.columnDef.meta?.headerStyle || {}),
+                }}
+              >
+                {header.isPlaceholder ? null : (
+                  <div
+                    className={
+                      enableSorting && header.column.getCanSort()
+                        ? "cursor-pointer select-none"
+                        : ""
+                    }
+                    onClick={header.column.getToggleSortingHandler()}
+                    role={
+                      enableSorting && header.column.getCanSort()
+                        ? "button"
+                        : undefined
+                    }
+                    aria-label={
+                      enableSorting && header.column.getCanSort()
+                        ? `Sort by ${header.column.id}`
+                        : undefined
+                    }
+                  >
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    {renderSortIcon
+                      ? renderSortIcon(
+                          header.column.getIsSorted() as "asc" | "desc" | false
+                        )
+                      : { asc: " 🔼", desc: " 🔽" }[
+                          header.column.getIsSorted() as string
+                        ] ?? null}
+                  </div>
+                )}
+                {/* Resizer */}
+                {enableColumnResizing && header.column.getCanResize() && (
+                  <div
+                    onMouseDown={header.getResizeHandler()}
+                    onTouchStart={header.getResizeHandler()}
+                    className={`absolute right-0 top-0 h-full w-1 bg-gray-300 cursor-col-resize touch-none select-none ${
+                      header.column.getIsResizing() ? "bg-blue-500" : ""
+                    }`}
+                    aria-label={`Resize ${header.column.id} column`}
+                  />
+                )}
+              </th>
+            ))}
+          </tr>
+        ))}
+      </thead>
+    );
+  }
+);
+
+// Row component with memo for performance
+const TableRow = React.memo(
+  ({
+    row,
+    rowClassName,
+    cellClassName,
+    onRowClick,
+    onCellClick,
+    rowStyle,
+    cellStyle,
+  }: {
+    row: Row<any>;
+    rowClassName: string;
+    cellClassName: string;
+    onRowClick?: (row: Row<any>) => void;
+    onCellClick?: (row: Row<any>, columnId: string) => void;
+    rowStyle?: React.CSSProperties | ((row: Row<any>) => React.CSSProperties);
+    cellStyle?:
+      | React.CSSProperties
+      | ((row: Row<any>, columnId: string) => React.CSSProperties);
+  }) => {
+    const computedRowStyle = useMemo(() => {
+      if (typeof rowStyle === "function") {
+        return rowStyle(row);
+      }
+      return rowStyle;
+    }, [row, rowStyle]);
+
+    return (
+      <tr
+        className={`${rowClassName} ${row.getIsSelected() ? "selected" : ""}`}
+        onClick={onRowClick ? () => onRowClick(row) : undefined}
+        style={computedRowStyle}
+        data-testid={`row-${row.id}`}
+        role="row"
+      >
+        {row.getVisibleCells().map((cell) => {
+          const computedCellStyle = useMemo(() => {
+            if (typeof cellStyle === "function") {
+              return cellStyle(row, cell.column.id);
+            }
+            return cellStyle;
+          }, [cell.column.id]);
+
+          return (
+            <td
+              key={cell.id}
+              className={`${cellClassName} ${
+                cell.column.columnDef.meta?.cellClassName || ""
+              }`}
+              onClick={
+                onCellClick
+                  ? (e) => {
+                      e.stopPropagation(); // Prevent row click handler from firing
+                      onCellClick(row, cell.column.id);
+                    }
+                  : undefined
+              }
+              style={{
+                ...(cell.column.columnDef.meta?.cellStyle || {}),
+                ...computedCellStyle,
+              }}
+              data-testid={`cell-${row.id}-${cell.column.id}`}
+              role="cell"
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+);
+
+// Expanded row component
+const ExpandedRow = React.memo(
+  ({
+    row,
+    colSpan,
+    renderRowSubComponent,
+  }: {
+    row: Row<any>;
+    colSpan: number;
+    renderRowSubComponent: (row: Row<any>) => React.ReactNode;
+  }) => {
+    return (
+      <tr>
+        <td colSpan={colSpan} className="expanded-row">
+          {renderRowSubComponent(row)}
+        </td>
+      </tr>
+    );
+  }
+);
+
+export function TableAdapter<TData extends object, TValue = unknown>(
+  props: TableAdapterProps<TData, TValue>
+) {
+  // Extract core props
+  const {
+    data: initialData,
+    columns: propColumns,
+    totalRowCount: propTotalRowCount,
+    id,
+    debugTable,
+    getRowId,
+    error: propError,
+  } = props;
+
+  // Get default classNames from context or fallback to defaults
+  const defaultClassNames = useDefaultTableClassNames();
+
+  // Extract styling props (grouped or legacy)
+  const styling: TableStyling = {
+    className: props.styling?.className ?? props.className ?? "w-full",
+    classNames: props.styling?.classNames ?? props.classNames,
+    columnResizeMode:
+      props.styling?.columnResizeMode ?? props.columnResizeMode ?? "onChange",
+    style: props.styling?.style,
+    headerStyle: props.styling?.headerStyle,
+    rowStyle: props.styling?.rowStyle,
+    cellStyle: props.styling?.cellStyle,
+  };
+
+  // Extract feature flags (grouped or legacy)
+  const features = extractFeatureFlags(props);
+
+  // Extract loading state props (grouped or legacy)
+  const loading: TableLoading = {
+    isLoading: props.loading?.isLoading ?? props.isLoading ?? false,
+    isPaginationLoading:
+      props.loading?.isPaginationLoading ?? props.isPaginationLoading ?? false,
+    isSortingLoading: props.loading?.isSortingLoading ?? false,
+    isFilteringLoading: props.loading?.isFilteringLoading ?? false,
+    isExportLoading: props.loading?.isExportLoading ?? false,
+    showOverlayLoading:
+      props.loading?.showOverlayLoading ?? props.showOverlayLoading ?? false,
+    loadingComponent: props.loading?.loadingComponent ??
+      props.loadingComponent ?? <DefaultLoadingComponent />,
+    paginationLoadingComponent: props.loading?.paginationLoadingComponent ??
+      props.paginationLoadingComponent ?? <DefaultPaginationLoadingComponent />,
+  };
+
+  // Extract server-side props (grouped or legacy)
+  const server: TableServer = {
+    manualPagination:
+      props.server?.manualPagination ?? props.manualPagination ?? false,
+    manualSorting: props.server?.manualSorting ?? props.manualSorting ?? false,
+    manualFiltering:
+      props.server?.manualFiltering ?? props.manualFiltering ?? false,
+    manualGrouping:
+      props.server?.manualGrouping ?? props.manualGrouping ?? false,
+    pageCount: props.server?.pageCount ?? props.pageCount ?? -1,
+    autoResetPageIndex:
+      props.server?.autoResetPageIndex ??
+      props.autoResetPageIndex ??
+      !(props.server?.manualPagination ?? props.manualPagination ?? false),
+    fetchData: props.server?.fetchData,
+    onFetchError: props.server?.onFetchError,
+  };
+
+  // Extract accessibility props (grouped or legacy)
+  const accessibility: TableAccessibility = {
+    ariaLabel: props.accessibility?.ariaLabel ?? props.ariaLabel,
+    ariaLabelledBy: props.accessibility?.ariaLabelledBy ?? props.ariaLabelledBy,
+    ariaDescribedBy:
+      props.accessibility?.ariaDescribedBy ?? props.ariaDescribedBy,
+    ariaRowCount: props.accessibility?.ariaRowCount ?? false,
+    ariaColumnCount: props.accessibility?.ariaColumnCount ?? false,
+    ariaLiveRegion: props.accessibility?.ariaLiveRegion ?? false,
+    keyboardNavigation: props.accessibility?.keyboardNavigation ?? false,
+  };
+
+  // Extract animations props
+  const animations: TableAnimations = props.animations ?? {
+    enableAnimations: false,
+    rowAnimationDuration: 300,
+    sortAnimationDuration: 200,
+    expandAnimationDuration: 300,
+    animationLib: "css",
+  };
+
+  // Extract virtualization props
+  const virtualization: TableVirtualization = props.virtualization ?? {
+    rowHeight: 35,
+    visibleRows: 10,
+    virtualizationLib: "none",
+  };
+
+  // Extract export options
+  const exportOptions: TableExportOptions = props.exportOptions ?? {
+    formats: ["csv"],
+    fileName: "export.csv",
+    includeHiddenColumns: false,
+    exportSelection: false,
+  };
+
+  // Extract form integration props
+  const formIntegration: TableFormIntegration<TData> =
+    props.formIntegration ?? {
+      showValidationErrors: true,
+    };
+
+  // Extract pagination options
+  const pageSizeOptions = props.pageSizeOptions ?? [10, 20, 30, 40, 50];
+
+  // Extract render props (grouped or legacy)
+  const renderTableHeader =
+    props.render?.renderTableHeader ?? props.renderTableHeader;
+  const renderTableFooter =
+    props.render?.renderTableFooter ?? props.renderTableFooter;
+  const renderPagination =
+    props.render?.renderPagination ??
+    props.renderPagination ??
+    DefaultPaginationComponent;
+  const renderNoResults =
+    props.render?.renderNoResults ??
+    props.renderNoResults ??
+    DefaultNoResultsComponent;
+  const renderExpanded = props.render?.renderExpanded ?? props.renderExpanded;
+  const renderRowSubComponent =
+    props.render?.renderRowSubComponent ?? props.renderRowSubComponent;
+  const renderGroupedCell =
+    props.render?.renderGroupedCell ?? props.renderGroupedCell;
+  const renderSortIcon = props.render?.renderSortIcon ?? props.renderSortIcon;
+  const renderError = props.render?.renderError;
+
+  // Extract event handlers (grouped or legacy)
+  const onRowClick = props.events?.onRowClick ?? props.onRowClick;
+  const onCellClick = props.events?.onCellClick ?? props.onCellClick;
+  const onExportData = props.events?.onExportData ?? props.onExportData;
+  const onError = props.events?.onError;
+
+  // Extract cell edit handler
+  const onCellEdit = props.onStateChange?.onCellEdit;
+
+  // State for errors
+  const [error, setError] = useState<Error | null>(propError || null);
+
+  // Use custom hooks for state management
+  const {
+    currentPagination,
+    currentSorting,
+    currentColumnFilters,
+    currentGlobalFilter,
+    currentColumnVisibility,
+    currentRowSelection,
+    currentExpanded,
+    currentColumnOrder,
+    currentColumnPinning,
+    currentGrouping,
+    handlePaginationChange,
+    handleSortingChange,
+    handleColumnFiltersChange,
+    handleGlobalFilterChange,
+    handleColumnVisibilityChange,
+    handleRowSelectionChange,
+    handleExpandedChange,
+    handleColumnOrderChange,
+    handleColumnPinningChange,
+    handleGroupingChange,
+  } = useTableState(props);
+
+  // Memoize columns for performance
+  const columns = useMemo(() => propColumns, [propColumns]);
+
+  // Memoize data for performance - we'll use this initially then possibly replace with server or form data
+  const initialMemoizedData = useMemo(() => initialData, [initialData]);
+
+  // Create a state to track what data is currently being used by the table
+  const [tableData, setTableData] = useState<TData[]>(initialMemoizedData);
+
+  // Create the table instance with initial data
+  const table = useReactTable({
+    data: tableData,
+    columns,
+
+    // Feature enablers
+    enableSorting: features.sorting,
+    enableMultiSort: features.multiSort,
+    enableColumnFilters: features.columnFilters,
+    enableGlobalFilter: features.globalFilter,
+    enableRowSelection: features.rowSelection,
+    enableExpanding: features.expanding,
+    enableColumnResizing: features.columnResizing,
+    enableSortingRemoval: features.sortingRemoval,
+
+    // State
+    state: {
+      sorting: currentSorting,
+      columnFilters: currentColumnFilters,
+      globalFilter: currentGlobalFilter,
+      pagination: currentPagination,
+      columnVisibility: currentColumnVisibility,
+      rowSelection: currentRowSelection,
+      expanded: currentExpanded,
+      columnOrder: currentColumnOrder,
+      columnPinning: currentColumnPinning,
+      grouping: currentGrouping,
+    },
+
+    // Controlled state handlers
+    onSortingChange: handleSortingChange,
+    onColumnFiltersChange: handleColumnFiltersChange,
+    onGlobalFilterChange: handleGlobalFilterChange,
+    onPaginationChange: handlePaginationChange,
+    onColumnVisibilityChange: handleColumnVisibilityChange,
+    onRowSelectionChange: handleRowSelectionChange,
+    onExpandedChange: handleExpandedChange,
+    onColumnOrderChange: handleColumnOrderChange,
+    onColumnPinningChange: handleColumnPinningChange,
+    onGroupingChange: handleGroupingChange,
+
+    // Row model getters
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: server.manualSorting ? undefined : getSortedRowModel(),
+    getFilteredRowModel: server.manualFiltering
+      ? undefined
+      : getFilteredRowModel(),
+    getPaginationRowModel: server.manualPagination
+      ? undefined
+      : getPaginationRowModel(),
+
+    // Advanced options
+    manualPagination: server.manualPagination,
+    manualSorting: server.manualSorting,
+    manualFiltering: server.manualFiltering,
+    manualGrouping: server.manualGrouping,
+    autoResetPageIndex: server.autoResetPageIndex,
+    pageCount:
+      server.pageCount && server.pageCount > 0 ? server.pageCount : undefined,
+    globalFilterFn: props.globalFilterFn,
+    columnResizeMode: styling.columnResizeMode,
+    getRowId,
+
+    // Debug
+    debugTable,
+
+    // Initial meta
+    meta: {
+      updateData: (rowIndex, columnId, value) => {
+        console.log("Initial updateData called", rowIndex, columnId, value);
+      },
+    },
+  });
+
+  // Server-side data fetching
+  const {
+    isLoading: isFetchLoading,
+    data: serverData,
+    error: fetchError,
+    totalRowCount: serverTotalRowCount,
+    pageCount: serverPageCount,
+  } = useServerSideData(table, server, onError);
+
+  // Form integration
+  const {
+    formData,
+    validationErrors,
+    isDirty,
+    handleCellChange,
+    handleSubmit,
+    resetForm,
+  } = useTableForm(
+    // Use server data if available, otherwise use the original data
+    server.fetchData && serverData.length > 0
+      ? serverData
+      : initialMemoizedData,
+    formIntegration.onSubmit,
+    formIntegration.validationRules
+  );
+
+  // Export utilities
+  const { exportToCSV, exportToJSON, handleExport } = useTableExport(
+    // Use the current data source for export
+    features.formMode
+      ? formData
+      : server.fetchData && serverData.length > 0
+      ? serverData
+      : tableData,
+    columns,
+    exportOptions
+  );
+
+  // Update table data based on data source
+  useEffect(() => {
+    let dataToUse: TData[];
+
+    if (features.formMode) {
+      // In form mode, use form data
+      dataToUse = formData;
+    } else if (server.fetchData && serverData.length > 0) {
+      // If using server-side data and we have results, use that
+      dataToUse = serverData;
+    } else {
+      // Otherwise use original data
+      dataToUse = initialMemoizedData;
+    }
+
+    setTableData(dataToUse);
+
+    // We also need to update the table's data
+    table.setOptions((prev) => ({
+      ...prev,
+      data: dataToUse,
+      pageCount: serverPageCount > 0 ? serverPageCount : undefined,
+    }));
+  }, [
+    features.formMode,
+    formData,
+    server.fetchData,
+    serverData,
+    serverPageCount,
+    initialMemoizedData,
+    table,
+  ]);
+
+  // Update meta.updateData to use form or cell edit handler
+  useEffect(() => {
+    table.setOptions((prev) => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        updateData: (rowIndex, columnId, value) => {
+          if (features.formMode) {
+            handleCellChange(rowIndex, columnId, value);
+          } else if (onCellEdit) {
+            onCellEdit(rowIndex, columnId, value);
+          } else {
+            console.log("Update data", rowIndex, columnId, value);
+          }
+        },
+      },
+    }));
+  }, [features.formMode, handleCellChange, onCellEdit, table]);
+
+  // Handle error updates from props
+  useEffect(() => {
+    if (propError) {
+      setError(propError);
+      if (onError) {
+        onError(propError);
+      }
+    }
+  }, [propError, onError]);
+
+  // Combine errors
+  useEffect(() => {
+    if (fetchError && !error) {
+      setError(fetchError);
+      if (onError) {
+        onError(fetchError);
+      }
+    }
+  }, [fetchError, error, onError]);
+
+  // Combine loading states
+  const isTableLoading = loading.isLoading || isFetchLoading;
+  const isPaginationLoading =
+    loading.isPaginationLoading || (isFetchLoading && server.manualPagination);
+
+  // Determine total row count
+  const totalRowCount =
+    propTotalRowCount ??
+    serverTotalRowCount ??
+    table.getFilteredRowModel().rows.length;
+
+  // Merge classNames with proper precedence
+  const mergedClassNames = mergeClassNames(
+    defaultClassNames,
+    styling.classNames
+  );
+
+  // If there's an error and renderError is provided, show error state
+  if (error && renderError) {
+    return renderError(error);
+  }
+
+  // Setup export functionality
+  useEffect(() => {
+    if (onExportData) {
+      // Extend table meta with export function
+      table.setOptions((prev) => ({
+        ...prev,
+        meta: {
+          ...prev.meta,
+          exportData: () => {
+            if (exportOptions.formats && exportOptions.formats[0] === "json") {
+              exportToJSON();
+            } else {
+              exportToCSV();
+            }
+
+            // Call onExportData with current data
+            const currentData = features.formMode
+              ? formData
+              : server.fetchData && serverData.length > 0
+              ? serverData
+              : tableData;
+
+            onExportData(currentData);
+          },
+        },
+      }));
+    }
+  }, [
+    onExportData,
+    exportOptions.formats,
+    exportToCSV,
+    exportToJSON,
+    features.formMode,
+    formData,
+    server.fetchData,
+    serverData,
+    tableData,
+    table,
+  ]);
+
+  // Keyboard navigation handler for accessibility
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!accessibility.keyboardNavigation) return;
+
+      // Navigation keys
+      switch (e.key) {
+        case "Home":
+          table.setPageIndex(0);
+          e.preventDefault();
+          break;
+        case "End":
+          table.setPageIndex(table.getPageCount() - 1);
+          e.preventDefault();
+          break;
+        case "PageUp":
+          if (table.getCanPreviousPage()) {
+            table.previousPage();
+            e.preventDefault();
+          }
+          break;
+        case "PageDown":
+          if (table.getCanNextPage()) {
+            table.nextPage();
+            e.preventDefault();
+          }
+          break;
+      }
+    },
+    [table, accessibility.keyboardNavigation]
+  );
+
+  // Main render function
+  const TableComponent = (
+    <div
+      className={styling.className}
+      id={id}
+      style={styling.style}
+      onKeyDown={handleKeyDown}
+    >
+      {/* Custom Table Header */}
+      {renderTableHeader && renderTableHeader(table)}
+
+      {/* Main Table */}
+      <div
+        className={`overflow-x-auto relative ${
+          loading.showOverlayLoading && isTableLoading ? "opacity-60" : ""
+        }`}
+      >
+        {loading.showOverlayLoading && isTableLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+            {loading.loadingComponent}
+          </div>
+        )}
+        <table
+          className={mergedClassNames.table}
+          aria-label={accessibility.ariaLabel}
+          aria-labelledby={accessibility.ariaLabelledBy}
+          aria-describedby={accessibility.ariaDescribedBy}
+          role="grid"
+          {...(accessibility.ariaRowCount
+            ? { "aria-rowcount": totalRowCount }
+            : {})}
+          {...(accessibility.ariaColumnCount
+            ? { "aria-colcount": table.getAllColumns().length }
+            : {})}
+        >
+          {/* Table Header */}
+          <TableHeader
+            table={table}
+            headerClassName={mergedClassNames.thead}
+            enableSorting={!!features.sorting}
+            enableStickyHeader={!!features.stickyHeader}
+            enableColumnResizing={!!features.columnResizing}
+            renderSortIcon={renderSortIcon}
+            headerStyle={styling.headerStyle}
+          />
+
+          {/* Table Body */}
+          <tbody className={mergedClassNames.tbody}>
+            {/* Show loading indicator when initially loading with no data */}
+            {isTableLoading &&
+            !loading.showOverlayLoading &&
+            tableData.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={
+                    table.getAllColumns().filter((col) => col.getIsVisible())
+                      .length
+                  }
+                  className="px-6 py-12 text-center"
+                >
+                  {loading.loadingComponent}
+                </td>
+              </tr>
+            ) : isPaginationLoading &&
+              !loading.showOverlayLoading &&
+              tableData.length > 0 ? (
+              <>
+                {/* Show existing data with reduced opacity */}
+                <tr>
+                  <td
+                    colSpan={
+                      table.getAllColumns().filter((col) => col.getIsVisible())
+                        .length
+                    }
+                    className="px-6 py-2 text-center border-b"
+                  >
+                    {loading.paginationLoadingComponent}
+                  </td>
+                </tr>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    row={row}
+                    rowClassName={`${mergedClassNames.tbodyRow} opacity-50`}
+                    cellClassName={mergedClassNames.tbodyCell}
+                    rowStyle={styling.rowStyle}
+                    cellStyle={styling.cellStyle}
+                  />
+                ))}
+              </>
+            ) : table.getRowModel().rows.length === 0 ? (
+              renderNoResults ? (
+                renderNoResults(table)
+              ) : (
+                <tr>
+                  <td
+                    colSpan={
+                      table.getAllColumns().filter((col) => col.getIsVisible())
+                        .length
+                    }
+                    className="px-6 py-12 text-center text-gray-500"
+                  >
+                    <DefaultNoResultsComponent />
+                  </td>
+                </tr>
+              )
+            ) : (
+              // Regular data rows
+              table.getRowModel().rows.map((row) => (
+                <React.Fragment key={row.id}>
+                  <TableRow
+                    row={row}
+                    rowClassName={mergedClassNames.tbodyRow}
+                    cellClassName={mergedClassNames.tbodyCell}
+                    onRowClick={onRowClick}
+                    onCellClick={onCellClick}
+                    rowStyle={styling.rowStyle}
+                    cellStyle={styling.cellStyle}
+                  />
+                  {/* Expanded Row Content */}
+                  {features.expanding &&
+                    row.getIsExpanded() &&
+                    renderRowSubComponent && (
+                      <ExpandedRow
+                        row={row}
+                        colSpan={row.getVisibleCells().length}
+                        renderRowSubComponent={renderRowSubComponent}
+                      />
+                    )}
+                </React.Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Custom Table Footer */}
+      {renderTableFooter && renderTableFooter(table)}
+
+      {/* Pagination */}
+      {features.pagination &&
+        renderPagination &&
+        renderPagination({
+          table,
+          totalRowCount,
+          isLoading: isPaginationLoading,
+          pageSizeOptions,
+        })}
+
+      {/* Export Buttons - only shown if export formats are defined and no onExportData handler */}
+      {exportOptions.formats &&
+        exportOptions.formats.length > 0 &&
+        !onExportData && (
+          <div className="mt-4 flex justify-end space-x-2">
+            {exportOptions.formats.includes("csv") && (
+              <button
+                type="button"
+                onClick={() => exportToCSV()}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Export to CSV
+              </button>
+            )}
+            {exportOptions.formats.includes("json") && (
+              <button
+                type="button"
+                onClick={() => exportToJSON()}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Export to JSON
+              </button>
+            )}
+          </div>
+        )}
+
+      {/* Form mode buttons */}
+      {features.formMode && isDirty && (
+        <div className="mt-4 flex justify-end space-x-2">
+          <button
+            type="button"
+            onClick={resetForm}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={Object.keys(validationErrors).length > 0}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Changes
+          </button>
+        </div>
+      )}
+
+      {/* Validation errors summary - only shown if form mode is enabled and showValidationErrors is true */}
+      {features.formMode &&
+        formIntegration.showValidationErrors &&
+        Object.keys(validationErrors).length > 0 && (
+          <div className="mt-4 p-4 border border-red-300 bg-red-50 rounded">
+            <h3 className="text-red-700 font-medium">
+              Please fix the following errors:
+            </h3>
+            <ul className="mt-2 list-disc pl-5 text-red-600">
+              {Object.entries(validationErrors).map(([rowIndex, rowErrors]) =>
+                Object.entries(rowErrors).map(([columnId, error]) => (
+                  <li key={`${rowIndex}-${columnId}`}>
+                    Row {parseInt(rowIndex) + 1}, {columnId}: {error}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        )}
+
+      {/* Accessibility live region for announcements */}
+      {accessibility.ariaLiveRegion && (
+        <div className="sr-only" aria-live="polite">
+          {isTableLoading
+            ? "Loading data..."
+            : `Table with ${totalRowCount} rows and ${
+                table.getAllColumns().filter((col) => col.getIsVisible()).length
+              } columns.`}
+        </div>
+      )}
+    </div>
+  );
+
+  // Wrap in form if form mode is enabled
+  if (features.formMode) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        {TableComponent}
+      </form>
+    );
+  }
+
+  return TableComponent;
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\TableConfigContext.tsx ----
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from "react";
+import { DefaultTableClassNames, TableConfig } from "./types";
+import { DEFAULT_TABLE_CLASSNAMES, mergeClassNames } from "./utils";
+
+// Create the context with undefined default value
+const TableConfigContext = createContext<TableConfig | undefined>(undefined);
+
+/**
+ * Provider component for table configuration
+ * Manages global styling defaults for all TableAdapter instances
+ */
+export function TableConfigProvider({
+  children,
+  initialClassNames,
+}: {
+  children: ReactNode;
+  initialClassNames?: Partial<DefaultTableClassNames>;
+}) {
+  // Memoize the initial merged classNames to avoid unnecessary calculations
+  const initialMergedClassNames = useMemo(
+    () => ({
+      ...DEFAULT_TABLE_CLASSNAMES,
+      ...initialClassNames,
+    }),
+    []
+  );
+
+  // Store class names in state with memoized initial value
+  const [defaultClassNames, setDefaultClassNamesState] =
+    useState<DefaultTableClassNames>(initialMergedClassNames);
+
+  // Memoize the setDefaultClassNames function to prevent unnecessary rerenders
+  const setDefaultClassNames = useCallback(
+    (classNames: Partial<DefaultTableClassNames>) => {
+      setDefaultClassNamesState((prev) => ({
+        ...prev,
+        ...classNames,
+      }));
+    },
+    []
+  );
+
+  // Memoize the context value to prevent unnecessary rerenders
+  const contextValue = useMemo<TableConfig>(
+    () => ({
+      defaultClassNames,
+      setDefaultClassNames,
+    }),
+    [defaultClassNames, setDefaultClassNames]
+  );
+
+  return (
+    <TableConfigContext.Provider value={contextValue}>
+      {children}
+    </TableConfigContext.Provider>
+  );
+}
+
+/**
+ * Hook to use the table configuration
+ * @returns The table configuration from context
+ * @throws Error if used outside of a TableConfigProvider
+ */
+export function useTableConfig(): TableConfig {
+  const context = useContext(TableConfigContext);
+  if (context === undefined) {
+    throw new Error("useTableConfig must be used within a TableConfigProvider");
+  }
+  return context;
+}
+
+/**
+ * Hook to get default classNames with fallback
+ * @returns Default class names from context or fallback defaults
+ */
+export function useDefaultTableClassNames(): DefaultTableClassNames {
+  try {
+    const { defaultClassNames } = useTableConfig();
+    return defaultClassNames;
+  } catch {
+    // Fallback to defaults if no provider is available
+    return DEFAULT_TABLE_CLASSNAMES;
+  }
+}
+
+/**
+ * Hook to apply component-specific class names on top of defaults
+ * @param componentClassNames Component-specific class names
+ * @returns Merged class names with proper precedence
+ */
+export function useTableClassNames(
+  componentClassNames?: Partial<DefaultTableClassNames>
+): DefaultTableClassNames {
+  const defaultClassNames = useDefaultTableClassNames();
+
+  // Memoize the merged class names to prevent unnecessary calculations
+  return useMemo(
+    () => mergeClassNames(defaultClassNames, componentClassNames),
+    [defaultClassNames, componentClassNames]
+  );
+}
+
+/**
+ * HOC to wrap a component with TableConfigProvider
+ * @param Component Component to wrap
+ * @param initialClassNames Initial class names for the provider
+ * @returns Wrapped component with table configuration
+ */
+export function withTableConfig<P extends object>(
+  Component: React.ComponentType<P>,
+  initialClassNames?: Partial<DefaultTableClassNames>
+): React.FC<P> {
+  const WithTableConfig: React.FC<P> = (props) => (
+    <TableConfigProvider initialClassNames={initialClassNames}>
+      <Component {...props} />
+    </TableConfigProvider>
+  );
+
+  WithTableConfig.displayName = `WithTableConfig(${
+    Component.displayName || Component.name || "Component"
+  })`;
+
+  return WithTableConfig;
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\TableWithLoadingStates.tsx ----
+import React from "react";
+import {
+  EnhancedLoadingComponent,
+  EnhancedPaginationLoadingComponent,
+} from "./components";
+
+/**
+ * TableWithLoadingStates - A wrapper component that manages loading states for TableAdapter
+ * This separates loading UI concerns from the table component itself
+ */
+export function TableWithLoadingStates({
+  isInitialLoading = false,
+  isPaginationLoading = false,
+  loadingComponent,
+  paginationLoadingComponent,
+  children,
+}: {
+  isInitialLoading?: boolean;
+  isPaginationLoading?: boolean;
+  loadingComponent?: React.ReactNode;
+  paginationLoadingComponent?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  // Use provided components or fall back to defaults
+  const LoadingUI = loadingComponent || <EnhancedLoadingComponent />;
+  const PaginationLoadingUI = paginationLoadingComponent || (
+    <EnhancedPaginationLoadingComponent />
+  );
+
+  return (
+    <div className="relative">
+      {/* Initial loading overlay - full screen blur with spinner */}
+      {isInitialLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-60 backdrop-blur-sm z-10">
+          {LoadingUI}
+        </div>
+      )}
+
+      {/* Pagination loading indicator - top bar only */}
+      {!isInitialLoading && isPaginationLoading && <>{PaginationLoadingUI}</>}
+
+      {/* Render table with slight opacity during loading */}
+      <div
+        className={
+          isPaginationLoading
+            ? "opacity-70 transition-opacity duration-200"
+            : ""
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ---- File: \Projects\tanstack-table-adapter\src\test-utils.tsx ----
+import React from "react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { TableAdapter } from "./index";
+import type { TableAdapterProps } from "./types";
+
+/**
+ * Creates a test table with default test data and columns
+ * This is useful for unit testing components that use TableAdapter
+ */
+export function createTestTable<TData extends object>(
+  props: Partial<TableAdapterProps<TData>> = {}
+) {
+  // Default test data if none provided
+  const defaultData = [
+    { id: "1", name: "Test 1", value: 100 },
+    { id: "2", name: "Test 2", value: 200 },
+    { id: "3", name: "Test 3", value: 300 },
+  ] as unknown as TData[];
+
+  // Default columns if none provided
+  const defaultColumns = [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "name", header: "Name" },
+    { accessorKey: "value", header: "Value" },
+  ];
+
+  // Render with defaults or overrides
+  const renderResult = render(
+    <TableAdapter
+      data={props.data || defaultData}
+      columns={props.columns || defaultColumns}
+      {...props}
+    />
+  );
+
+  // Helper functions for common testing scenarios
+  return {
+    ...renderResult,
+
+    // Get table element
+    getTable: () => screen.getByRole("table"),
+
+    // Get all rows (excluding header)
+    getRows: () => screen.getAllByRole("row").slice(1),
+
+    // Get header cells
+    getHeaderCells: () => screen.getAllByRole("columnheader"),
+
+    // Get cells for a specific row
+    getCellsForRow: (rowIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      return within(rows[rowIndex + 1]).getAllByRole("cell");
+    },
+
+    // Get cell content
+    getCellContent: (rowIndex: number, columnIndex: number) => {
+      const cells = within(
+        screen.getAllByRole("row")[rowIndex + 1]
+      ).getAllByRole("cell");
+      return cells[columnIndex].textContent;
+    },
+
+    // Sort by column
+    sortByColumn: async (columnName: string) => {
+      const headers = screen.getAllByRole("columnheader");
+      const header = headers.find((h) => h.textContent?.includes(columnName));
+      if (header) {
+        await userEvent.click(header);
+        return true;
+      }
+      return false;
+    },
+
+    // Change page
+    goToNextPage: async () => {
+      const nextButton = screen.getByText(">");
+      await userEvent.click(nextButton);
+    },
+
+    goToPreviousPage: async () => {
+      const prevButton = screen.getByText("<");
+      await userEvent.click(prevButton);
+    },
+
+    goToPage: async (pageNumber: number) => {
+      const lastButton = screen.getByText(">>");
+      const firstButton = screen.getByText("<<");
+
+      // First go to first page
+      await userEvent.click(firstButton);
+
+      // Then click next page until we reach desired page
+      for (let i = 1; i < pageNumber; i++) {
+        await userEvent.click(screen.getByText(">"));
+      }
+    },
+
+    // Change page size
+    changePageSize: async (size: number) => {
+      const select = screen.getByRole("combobox");
+      await userEvent.selectOptions(select, size.toString());
+    },
+
+    // Apply global filter
+    applyGlobalFilter: async (filterText: string) => {
+      const input = screen.getByPlaceholderText("Search...");
+      await userEvent.clear(input);
+      await userEvent.type(input, filterText);
+    },
+
+    // Apply column filter
+    applyColumnFilter: async (columnName: string, filterValue: string) => {
+      // This is a simplified implementation - you'll need to adapt based on your UI
+      const filterInputs = screen.getAllByPlaceholderText("Filter...");
+      const headers = screen.getAllByRole("columnheader");
+
+      // Find the right filter input based on column index
+      const columnIndex = headers.findIndex((h) =>
+        h.textContent?.includes(columnName)
+      );
+      if (columnIndex >= 0 && columnIndex < filterInputs.length) {
+        await userEvent.clear(filterInputs[columnIndex]);
+        await userEvent.type(filterInputs[columnIndex], filterValue);
+        return true;
+      }
+      return false;
+    },
+
+    // Get loading state
+    isLoading: () => {
+      const loadingElement = screen.queryByText("Loading data...");
+      return !!loadingElement;
+    },
+
+    // Get pagination info
+    getPaginationInfo: () => {
+      const paginationText = screen.getByText(/Showing .* to .* of .* results/);
+      const match = paginationText.textContent?.match(
+        /Showing (\d+) to (\d+) of (\d+) results/
+      );
+      if (match) {
+        return {
+          from: parseInt(match[1]),
+          to: parseInt(match[2]),
+          total: parseInt(match[3]),
+        };
+      }
+      return null;
+    },
+
+    // Check if a specific row is selected
+    isRowSelected: (rowIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      return rows[rowIndex + 1].classList.contains("selected"); // Assumes a 'selected' class
+    },
+
+    // Select a row (if row selection is enabled)
+    selectRow: async (rowIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      const checkboxes = within(rows[rowIndex + 1]).queryAllByRole("checkbox");
+      if (checkboxes.length > 0) {
+        await userEvent.click(checkboxes[0]);
+        return true;
+      }
+      return false;
+    },
+
+    // Expand a row (if row expansion is enabled)
+    expandRow: async (rowIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      const expandButtons = within(rows[rowIndex + 1]).queryAllByRole("button");
+      const expandButton = expandButtons.find(
+        (b) => b.getAttribute("aria-label") === "Expand row"
+      );
+      if (expandButton) {
+        await userEvent.click(expandButton);
+        return true;
+      }
+      return false;
+    },
+
+    // Check if a row is expanded
+    isRowExpanded: (rowIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      const expandButtons = within(rows[rowIndex + 1]).queryAllByRole("button");
+      const expandButton = expandButtons.find(
+        (b) => b.getAttribute("aria-label") === "Expand row"
+      );
+      return expandButton?.getAttribute("aria-expanded") === "true";
+    },
+
+    // Toggle column visibility
+    toggleColumn: async (columnName: string) => {
+      // This assumes you have a column visibility toggle component
+      const visibilityToggle = screen.getByText(columnName);
+      await userEvent.click(visibilityToggle);
+    },
+
+    // Get column visibility state
+    isColumnVisible: (columnName: string) => {
+      const headers = screen.getAllByRole("columnheader");
+      return headers.some((h) => h.textContent?.includes(columnName));
+    },
+
+    // Check if table has any data
+    hasData: () => {
+      return screen.getAllByRole("row").length > 1;
+    },
+
+    // Get the text content of a specific cell
+    getCellText: (rowIndex: number, columnIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      const cells = within(rows[rowIndex + 1]).getAllByRole("cell");
+      return cells[columnIndex].textContent || "";
+    },
+
+    // Edit a cell (if cell editing is enabled)
+    editCell: async (
+      rowIndex: number,
+      columnIndex: number,
+      newValue: string
+    ) => {
+      const rows = screen.getAllByRole("row");
+      const cells = within(rows[rowIndex + 1]).getAllByRole("cell");
+      const cell = cells[columnIndex];
+
+      // Click on cell to enter edit mode
+      await userEvent.click(cell);
+
+      // Find input field in edit mode
+      const input = within(cell).getByRole("textbox");
+
+      // Update input value
+      await userEvent.clear(input);
+      await userEvent.type(input, newValue);
+
+      // Press Enter to confirm
+      await userEvent.keyboard("{Enter}");
+    },
+
+    // Submit form (if form mode is enabled)
+    submitForm: async () => {
+      const submitButton = screen.getByRole("button", { name: /save|submit/i });
+      await userEvent.click(submitButton);
+    },
+
+    // Reset form (if form mode is enabled)
+    resetForm: async () => {
+      const resetButton = screen.getByRole("button", { name: /reset|cancel/i });
+      await userEvent.click(resetButton);
+    },
+
+    // Get validation errors (if form validation is enabled)
+    getValidationErrors: () => {
+      return screen.queryAllByText(/is required|invalid/i);
+    },
+
+    // Check if a specific cell has validation error
+    hasCellValidationError: (rowIndex: number, columnIndex: number) => {
+      const rows = screen.getAllByRole("row");
+      const cells = within(rows[rowIndex + 1]).getAllByRole("cell");
+      const cell = cells[columnIndex];
+      return within(cell).queryAllByText(/is required|invalid/i).length > 0;
+    },
+
+    // Debug utility to print table structure
+    debug: () => {
+      console.log("Table Structure:");
+      console.log(`Headers (${screen.getAllByRole("columnheader").length}):`);
+      screen.getAllByRole("columnheader").forEach((header, i) => {
+        console.log(`  ${i}: ${header.textContent}`);
+      });
+
+      console.log(`Rows (${screen.getAllByRole("row").length - 1}):`);
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .forEach((row, i) => {
+          const cells = within(row).getAllByRole("cell");
+          console.log(`  Row ${i}:`);
+          cells.forEach((cell, j) => {
+            console.log(`    Cell ${j}: ${cell.textContent}`);
+          });
+        });
+    },
+  };
+}
+
+/**
+ * Example usage:
+ *
+ * test('sorts table when clicking header', async () => {
+ *   const { sortByColumn, getCellContent } = createTestTable();
+ *
+ *   // Sort by name column
+ *   await sortByColumn('Name');
+ *
+ *   // Check first row has expected content after sorting
+ *   expect(getCellContent(0, 1)).toBe('Test 1');
+ * });
+ */
+

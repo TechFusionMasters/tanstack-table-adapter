@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -11,18 +8,33 @@ import {
   getSortedRowModel,
   useReactTable,
   Table as TanStackTable,
-  RowSelectionState,
-  ColumnResizeMode,
-  PaginationState,
-  ExpandedState,
-  OnChangeFn,
-  FilterFn,
   RowData,
   Row,
 } from "@tanstack/react-table";
 
 // Import types
-import { TableAdapterProps } from "./types";
+import {
+  TableAdapterProps,
+  TableFeatures,
+  TableStyling,
+  TableLoading,
+  TableServer,
+  TableAccessibility,
+  TableAnimations,
+  TableVirtualization,
+  TableExportOptions,
+  TableFormIntegration,
+} from "./types";
+
+// Import hooks and utilities
+import {
+  useTableState,
+  useServerSideData,
+  useTableExport,
+  useTableForm,
+} from "./hooks";
+import { mergeClassNames, extractFeatureFlags } from "./utils";
+import { useDefaultTableClassNames } from "./TableConfigContext";
 
 // Import default components
 import {
@@ -32,391 +44,384 @@ import {
   DefaultPaginationComponent,
 } from "./components";
 
-// Use declaration merging to extend the RowData interface
-declare module "@tanstack/react-table" {
-  interface TableMeta<TData extends RowData> {
-    updateData?: (rowIndex: number, columnId: string, value: unknown) => void;
+// Use React.memo for performance optimization
+// Use React.memo for performance optimization
+const TableHeader = React.memo(
+  ({
+    table,
+    headerClassName,
+    enableSorting = false,
+    enableStickyHeader = false,
+    enableColumnResizing = false,
+    renderSortIcon,
+    headerStyle,
+  }: {
+    table: TanStackTable<any>;
+    headerClassName: string;
+    enableSorting?: boolean;
+    enableStickyHeader?: boolean;
+    enableColumnResizing?: boolean;
+    renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+    headerStyle?: React.CSSProperties;
+  }) => {
+    return (
+      <thead
+        className={`${headerClassName} ${
+          enableStickyHeader ? "sticky top-0 z-10" : ""
+        }`}
+        style={headerStyle}
+      >
+        {table.getHeaderGroups().map((headerGroup) => (
+          <tr key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <th
+                key={header.id}
+                colSpan={header.colSpan}
+                className={header.column.columnDef.meta?.headerClassName || ""}
+                style={{
+                  width: header.getSize(),
+                  position: "relative",
+                  ...(header.column.columnDef.meta?.headerStyle || {}),
+                }}
+              >
+                {header.isPlaceholder ? null : (
+                  <div
+                    className={
+                      enableSorting && header.column.getCanSort()
+                        ? "cursor-pointer select-none"
+                        : ""
+                    }
+                    onClick={header.column.getToggleSortingHandler()}
+                    role={
+                      enableSorting && header.column.getCanSort()
+                        ? "button"
+                        : undefined
+                    }
+                    aria-label={
+                      enableSorting && header.column.getCanSort()
+                        ? `Sort by ${header.column.id}`
+                        : undefined
+                    }
+                  >
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    {renderSortIcon
+                      ? renderSortIcon(
+                          header.column.getIsSorted() as "asc" | "desc" | false
+                        )
+                      : { asc: " 🔼", desc: " 🔽" }[
+                          header.column.getIsSorted() as string
+                        ] ?? null}
+                  </div>
+                )}
+                {/* Resizer */}
+                {enableColumnResizing && header.column.getCanResize() && (
+                  <div
+                    onMouseDown={header.getResizeHandler()}
+                    onTouchStart={header.getResizeHandler()}
+                    className={`absolute right-0 top-0 h-full w-1 bg-gray-300 cursor-col-resize touch-none select-none ${
+                      header.column.getIsResizing() ? "bg-blue-500" : ""
+                    }`}
+                    aria-label={`Resize ${header.column.id} column`}
+                  />
+                )}
+              </th>
+            ))}
+          </tr>
+        ))}
+      </thead>
+    );
   }
-}
+);
 
-export function TableAdapter<TData extends object>(
-  props: TableAdapterProps<TData>
+// Row component with memo for performance
+const TableRow = React.memo(
+  ({
+    row,
+    rowClassName,
+    cellClassName,
+    onRowClick,
+    onCellClick,
+    rowStyle,
+    cellStyle,
+  }: {
+    row: Row<any>;
+    rowClassName: string;
+    cellClassName: string;
+    onRowClick?: (row: Row<any>) => void;
+    onCellClick?: (row: Row<any>, columnId: string) => void;
+    rowStyle?: React.CSSProperties | ((row: Row<any>) => React.CSSProperties);
+    cellStyle?:
+      | React.CSSProperties
+      | ((row: Row<any>, columnId: string) => React.CSSProperties);
+  }) => {
+    const computedRowStyle = useMemo(() => {
+      if (typeof rowStyle === "function") {
+        return rowStyle(row);
+      }
+      return rowStyle;
+    }, [row, rowStyle]);
+
+    return (
+      <tr
+        className={`${rowClassName} ${row.getIsSelected() ? "selected" : ""}`}
+        onClick={onRowClick ? () => onRowClick(row) : undefined}
+        style={computedRowStyle}
+        data-testid={`row-${row.id}`}
+        role="row"
+      >
+        {row.getVisibleCells().map((cell) => {
+          const computedCellStyle = useMemo(() => {
+            if (typeof cellStyle === "function") {
+              return cellStyle(row, cell.column.id);
+            }
+            return cellStyle;
+          }, [cell.column.id]);
+
+          return (
+            <td
+              key={cell.id}
+              className={`${cellClassName} ${
+                cell.column.columnDef.meta?.cellClassName || ""
+              }`}
+              onClick={
+                onCellClick
+                  ? (e) => {
+                      e.stopPropagation(); // Prevent row click handler from firing
+                      onCellClick(row, cell.column.id);
+                    }
+                  : undefined
+              }
+              style={{
+                ...(cell.column.columnDef.meta?.cellStyle || {}),
+                ...computedCellStyle,
+              }}
+              data-testid={`cell-${row.id}-${cell.column.id}`}
+              role="cell"
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+);
+
+// Expanded row component
+const ExpandedRow = React.memo(
+  ({
+    row,
+    colSpan,
+    renderRowSubComponent,
+  }: {
+    row: Row<any>;
+    colSpan: number;
+    renderRowSubComponent: (row: Row<any>) => React.ReactNode;
+  }) => {
+    return (
+      <tr>
+        <td colSpan={colSpan} className="expanded-row">
+          {renderRowSubComponent(row)}
+        </td>
+      </tr>
+    );
+  }
+);
+
+export function TableAdapter<TData extends object, TValue = unknown>(
+  props: TableAdapterProps<TData, TValue>
 ) {
-  // Core Props
-  const data = props.data;
-  const columns = props.columns;
-  const totalRowCount = props.totalRowCount;
+  // Extract core props
+  const {
+    data: initialData,
+    columns: propColumns,
+    totalRowCount: propTotalRowCount,
+    id,
+    debugTable,
+    getRowId,
+    error: propError,
+  } = props;
 
-  // Misc Props
-  const id = props.id;
-  const debugTable = props.debugTable;
-  const getRowId = props.getRowId;
+  // Get default classNames from context or fallback to defaults
+  const defaultClassNames = useDefaultTableClassNames();
 
-  // Styling Props
-  const className = props.className ?? "w-full";
-  const tableClassName =
-    props.tableClassName ?? "min-w-full divide-y divide-gray-200";
-  const headerClassName = props.headerClassName ?? "bg-gray-50";
-  const bodyClassName =
-    props.bodyClassName ?? "bg-white divide-y divide-gray-200";
-  const rowClassName = props.rowClassName ?? "";
-  const cellClassName =
-    props.cellClassName ?? "px-6 py-4 whitespace-nowrap text-sm text-gray-500";
-  const columnResizeMode = props.columnResizeMode ?? "onChange";
-
-  // Feature Props
-  const enablePagination = props.enablePagination ?? true;
-  const enableSorting = props.enableSorting ?? true;
-  const enableMultiSort = props.enableMultiSort ?? true;
-  const enableColumnFilters = props.enableColumnFilters ?? false;
-  const enableGlobalFilter = props.enableGlobalFilter ?? false;
-  const enableColumnResizing = props.enableColumnResizing ?? false;
-  const enableRowSelection = props.enableRowSelection ?? false;
-  const enableExpanding = props.enableExpanding ?? false;
-  const enablePinning = props.enablePinning ?? false;
-  const enableStickyHeader = props.enableStickyHeader ?? false;
-  const enableGrouping = props.enableGrouping ?? false;
-
-  // Pagination Options
-  const pageSizeOptions = props.pageSizeOptions ?? [10, 20, 30, 40, 50];
-
-  // State Props
-  const pageSize = props.pageSize ?? 10;
-  const pageIndex = props.pageIndex ?? 0;
-  const sorting = props.sorting ?? [];
-  const columnFilters = props.columnFilters ?? [];
-  const globalFilter = props.globalFilter ?? "";
-  const columnVisibility = props.columnVisibility ?? {};
-  const rowSelection = props.rowSelection ?? {};
-  const expanded = props.expanded ?? {};
-  const columnOrder = props.columnOrder;
-  const columnPinning = props.columnPinning;
-  const grouping = props.grouping;
-
-  // Controlled State Handlers
-  const onPaginationChange = props.onPaginationChange;
-  const onSortingChange = props.onSortingChange;
-  const onColumnFiltersChange = props.onColumnFiltersChange;
-  const onGlobalFilterChange = props.onGlobalFilterChange;
-  const onColumnVisibilityChange = props.onColumnVisibilityChange;
-  const onRowSelectionChange = props.onRowSelectionChange;
-  const onExpandedChange = props.onExpandedChange;
-  const onColumnOrderChange = props.onColumnOrderChange;
-  const onColumnPinningChange = props.onColumnPinningChange;
-  const onGroupingChange = props.onGroupingChange;
-
-  // Advanced Props
-  const manualPagination = props.manualPagination ?? false;
-  const manualSorting = props.manualSorting ?? false;
-  const manualFiltering = props.manualFiltering ?? false;
-  const manualGrouping = props.manualGrouping ?? false;
-  const pageCount = props.pageCount ?? -1;
-
-  // Smart default for autoResetPageIndex: false for server-side pagination, true for client-side
-  const autoResetPageIndex = props.autoResetPageIndex ?? !manualPagination;
-
-  const globalFilterFn = props.globalFilterFn;
-
-  // Custom Components
-  const renderTableHeader = props.renderTableHeader;
-  const renderTableFooter = props.renderTableFooter;
-  const renderPagination = props.renderPagination ?? DefaultPaginationComponent;
-  const renderNoResults = props.renderNoResults ?? DefaultNoResultsComponent;
-  const renderExpanded = props.renderExpanded;
-  const renderRowSubComponent = props.renderRowSubComponent;
-  const renderGroupedCell = props.renderGroupedCell;
-
-  // Custom Event Handlers
-  const onRowClick = props.onRowClick;
-  const onCellClick = props.onCellClick;
-  const onExportData = props.onExportData;
-
-  // Loading State
-  const isLoading = props.isLoading ?? false;
-  const isPaginationLoading = props.isPaginationLoading ?? false;
-  const loadingComponent = props.loadingComponent ?? (
-    <DefaultLoadingComponent />
-  );
-  const paginationLoadingComponent = props.paginationLoadingComponent ?? (
-    <DefaultPaginationLoadingComponent />
-  );
-  const showOverlayLoading = props.showOverlayLoading ?? false;
-
-  // Accessibility
-  const ariaLabel = props.ariaLabel;
-  const ariaLabelledBy = props.ariaLabelledBy;
-  const ariaDescribedBy = props.ariaDescribedBy;
-
-  // Sorting Customization
-  const renderSortIcon = props.renderSortIcon;
-  const enableSortingRemoval = props.enableSortingRemoval ?? true;
-
-  // Use direct state management instead of complex controlled state hook
-  const [paginationState, setPaginationState] = useState({
-    pageIndex,
-    pageSize,
-  });
-  const [sortingState, setSortingState] = useState(sorting);
-  const [columnFiltersState, setColumnFiltersState] = useState(columnFilters);
-  const [globalFilterState, setGlobalFilterState] = useState(globalFilter);
-  const [columnVisibilityState, setColumnVisibilityState] =
-    useState(columnVisibility);
-  const [rowSelectionState, setRowSelectionState] = useState(rowSelection);
-  const [expandedState, setExpandedState] = useState(expanded);
-  const [columnOrderState, setColumnOrderState] = useState(columnOrder || []);
-  const [columnPinningState, setColumnPinningState] = useState(
-    columnPinning || { left: [], right: [] }
-  );
-  const [groupingState, setGroupingState] = useState(grouping || []);
-
-  // Determine if component is controlled or uncontrolled
-  const isControlled = {
-    pagination: !!onPaginationChange,
-    sorting: !!onSortingChange,
-    columnFilters: !!onColumnFiltersChange,
-    globalFilter: !!onGlobalFilterChange,
-    columnVisibility: !!onColumnVisibilityChange,
-    rowSelection: !!onRowSelectionChange,
-    expanded: !!onExpandedChange,
-    columnOrder: !!onColumnOrderChange,
-    columnPinning: !!onColumnPinningChange,
-    grouping: !!onGroupingChange,
+  // Extract styling props (grouped or legacy)
+  const styling: TableStyling = {
+    className: props.styling?.className ?? props.className ?? "w-full",
+    classNames: props.styling?.classNames ?? props.classNames,
+    columnResizeMode:
+      props.styling?.columnResizeMode ?? props.columnResizeMode ?? "onChange",
+    style: props.styling?.style,
+    headerStyle: props.styling?.headerStyle,
+    rowStyle: props.styling?.rowStyle,
+    cellStyle: props.styling?.cellStyle,
   };
 
-  // Use props for controlled state, internal state for uncontrolled
-  const currentPagination = isControlled.pagination
-    ? { pageIndex, pageSize }
-    : paginationState;
-  const currentSorting = isControlled.sorting ? sorting : sortingState;
-  const currentColumnFilters = isControlled.columnFilters
-    ? columnFilters
-    : columnFiltersState;
-  const currentGlobalFilter = isControlled.globalFilter
-    ? globalFilter
-    : globalFilterState;
-  const currentColumnVisibility = isControlled.columnVisibility
-    ? columnVisibility
-    : columnVisibilityState;
-  const currentRowSelection = isControlled.rowSelection
-    ? rowSelection
-    : rowSelectionState;
-  const currentExpanded = isControlled.expanded ? expanded : expandedState;
-  const currentColumnOrder = isControlled.columnOrder
-    ? columnOrder || []
-    : columnOrderState;
-  const currentColumnPinning = isControlled.columnPinning
-    ? columnPinning || { left: [], right: [] }
-    : columnPinningState;
-  const currentGrouping = isControlled.grouping
-    ? grouping || []
-    : groupingState;
+  // Extract feature flags (grouped or legacy)
+  const features = extractFeatureFlags(props);
 
-  // Create wrapper functions for controlled state
-  const handlePaginationChange = useCallback(
-    (updater: any) => {
-      if (isControlled.pagination) {
-        // Controlled mode - just call the callback
-        const newState =
-          typeof updater === "function" ? updater(currentPagination) : updater;
-        onPaginationChange!(newState);
-      } else {
-        // Uncontrolled mode - update internal state
-        setPaginationState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.pagination, currentPagination, onPaginationChange]
-  );
+  // Extract loading state props (grouped or legacy)
+  const loading: TableLoading = {
+    isLoading: props.loading?.isLoading ?? props.isLoading ?? false,
+    isPaginationLoading:
+      props.loading?.isPaginationLoading ?? props.isPaginationLoading ?? false,
+    isSortingLoading: props.loading?.isSortingLoading ?? false,
+    isFilteringLoading: props.loading?.isFilteringLoading ?? false,
+    isExportLoading: props.loading?.isExportLoading ?? false,
+    showOverlayLoading:
+      props.loading?.showOverlayLoading ?? props.showOverlayLoading ?? false,
+    loadingComponent: props.loading?.loadingComponent ??
+      props.loadingComponent ?? <DefaultLoadingComponent />,
+    paginationLoadingComponent: props.loading?.paginationLoadingComponent ??
+      props.paginationLoadingComponent ?? <DefaultPaginationLoadingComponent />,
+  };
 
-  const handleSortingChange = useCallback(
-    (updater: any) => {
-      if (isControlled.sorting) {
-        const newState =
-          typeof updater === "function" ? updater(currentSorting) : updater;
-        onSortingChange!(newState);
-      } else {
-        setSortingState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.sorting, currentSorting, onSortingChange]
-  );
+  // Extract server-side props (grouped or legacy)
+  const server: TableServer = {
+    manualPagination:
+      props.server?.manualPagination ?? props.manualPagination ?? false,
+    manualSorting: props.server?.manualSorting ?? props.manualSorting ?? false,
+    manualFiltering:
+      props.server?.manualFiltering ?? props.manualFiltering ?? false,
+    manualGrouping:
+      props.server?.manualGrouping ?? props.manualGrouping ?? false,
+    pageCount: props.server?.pageCount ?? props.pageCount ?? -1,
+    autoResetPageIndex:
+      props.server?.autoResetPageIndex ??
+      props.autoResetPageIndex ??
+      !(props.server?.manualPagination ?? props.manualPagination ?? false),
+    fetchData: props.server?.fetchData,
+    onFetchError: props.server?.onFetchError,
+  };
 
-  const handleColumnFiltersChange = useCallback(
-    (updater: any) => {
-      if (isControlled.columnFilters) {
-        const newState =
-          typeof updater === "function"
-            ? updater(currentColumnFilters)
-            : updater;
-        onColumnFiltersChange!(newState);
-      } else {
-        setColumnFiltersState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.columnFilters, currentColumnFilters, onColumnFiltersChange]
-  );
+  // Extract accessibility props (grouped or legacy)
+  const accessibility: TableAccessibility = {
+    ariaLabel: props.accessibility?.ariaLabel ?? props.ariaLabel,
+    ariaLabelledBy: props.accessibility?.ariaLabelledBy ?? props.ariaLabelledBy,
+    ariaDescribedBy:
+      props.accessibility?.ariaDescribedBy ?? props.ariaDescribedBy,
+    ariaRowCount: props.accessibility?.ariaRowCount ?? false,
+    ariaColumnCount: props.accessibility?.ariaColumnCount ?? false,
+    ariaLiveRegion: props.accessibility?.ariaLiveRegion ?? false,
+    keyboardNavigation: props.accessibility?.keyboardNavigation ?? false,
+  };
 
-  const handleGlobalFilterChange = useCallback(
-    (updater: any) => {
-      if (isControlled.globalFilter) {
-        const newState =
-          typeof updater === "function"
-            ? updater(currentGlobalFilter)
-            : updater;
-        onGlobalFilterChange!(newState);
-      } else {
-        setGlobalFilterState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.globalFilter, currentGlobalFilter, onGlobalFilterChange]
-  );
+  // Extract animations props
+  const animations: TableAnimations = props.animations ?? {
+    enableAnimations: false,
+    rowAnimationDuration: 300,
+    sortAnimationDuration: 200,
+    expandAnimationDuration: 300,
+    animationLib: "css",
+  };
 
-  const handleColumnVisibilityChange = useCallback(
-    (updater: any) => {
-      if (isControlled.columnVisibility) {
-        const newState =
-          typeof updater === "function"
-            ? updater(currentColumnVisibility)
-            : updater;
-        onColumnVisibilityChange!(newState);
-      } else {
-        setColumnVisibilityState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [
-      isControlled.columnVisibility,
-      currentColumnVisibility,
-      onColumnVisibilityChange,
-    ]
-  );
+  // Extract virtualization props
+  const virtualization: TableVirtualization = props.virtualization ?? {
+    rowHeight: 35,
+    visibleRows: 10,
+    virtualizationLib: "none",
+  };
 
-  const handleRowSelectionChange = useCallback(
-    (updater: any) => {
-      if (isControlled.rowSelection) {
-        const newState =
-          typeof updater === "function"
-            ? updater(currentRowSelection)
-            : updater;
-        onRowSelectionChange!(newState);
-      } else {
-        setRowSelectionState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.rowSelection, currentRowSelection, onRowSelectionChange]
-  );
+  // Extract export options
+  const exportOptions: TableExportOptions = props.exportOptions ?? {
+    formats: ["csv"],
+    fileName: "export.csv",
+    includeHiddenColumns: false,
+    exportSelection: false,
+  };
 
-  const handleExpandedChange = useCallback(
-    (updater: any) => {
-      if (isControlled.expanded) {
-        const newState =
-          typeof updater === "function" ? updater(currentExpanded) : updater;
-        onExpandedChange!(newState);
-      } else {
-        setExpandedState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.expanded, currentExpanded, onExpandedChange]
-  );
+  // Extract form integration props
+  const formIntegration: TableFormIntegration<TData> =
+    props.formIntegration ?? {
+      showValidationErrors: true,
+    };
 
-  const handleColumnOrderChange = useCallback(
-    (updater: any) => {
-      if (isControlled.columnOrder) {
-        const newState =
-          typeof updater === "function" ? updater(currentColumnOrder) : updater;
-        onColumnOrderChange!(newState);
-      } else {
-        setColumnOrderState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.columnOrder, currentColumnOrder, onColumnOrderChange]
-  );
+  // Extract pagination options
+  const pageSizeOptions = props.pageSizeOptions ?? [10, 20, 30, 40, 50];
 
-  const handleColumnPinningChange = useCallback(
-    (updater: any) => {
-      if (isControlled.columnPinning) {
-        const newState =
-          typeof updater === "function"
-            ? updater(currentColumnPinning)
-            : updater;
-        onColumnPinningChange!(newState);
-      } else {
-        setColumnPinningState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.columnPinning, currentColumnPinning, onColumnPinningChange]
-  );
+  // Extract render props (grouped or legacy)
+  const renderTableHeader =
+    props.render?.renderTableHeader ?? props.renderTableHeader;
+  const renderTableFooter =
+    props.render?.renderTableFooter ?? props.renderTableFooter;
+  const renderPagination =
+    props.render?.renderPagination ??
+    props.renderPagination ??
+    DefaultPaginationComponent;
+  const renderNoResults =
+    props.render?.renderNoResults ??
+    props.renderNoResults ??
+    DefaultNoResultsComponent;
+  const renderExpanded = props.render?.renderExpanded ?? props.renderExpanded;
+  const renderRowSubComponent =
+    props.render?.renderRowSubComponent ?? props.renderRowSubComponent;
+  const renderGroupedCell =
+    props.render?.renderGroupedCell ?? props.renderGroupedCell;
+  const renderSortIcon = props.render?.renderSortIcon ?? props.renderSortIcon;
+  const renderError = props.render?.renderError;
 
-  const handleGroupingChange = useCallback(
-    (updater: any) => {
-      if (isControlled.grouping) {
-        const newState =
-          typeof updater === "function" ? updater(currentGrouping) : updater;
-        onGroupingChange!(newState);
-      } else {
-        setGroupingState((prevState) => {
-          const newState =
-            typeof updater === "function" ? updater(prevState) : updater;
-          return newState;
-        });
-      }
-    },
-    [isControlled.grouping, currentGrouping, onGroupingChange]
-  );
+  // Extract event handlers (grouped or legacy)
+  const onRowClick = props.events?.onRowClick ?? props.onRowClick;
+  const onCellClick = props.events?.onCellClick ?? props.onCellClick;
+  const onExportData = props.events?.onExportData ?? props.onExportData;
+  const onError = props.events?.onError;
 
-  // Create memoized data
-  const tableData = useMemo(() => data, [data]);
+  // Extract cell edit handler
+  const onCellEdit = props.onStateChange?.onCellEdit;
 
-  // Create the table instance
+  // State for errors
+  const [error, setError] = useState<Error | null>(propError || null);
+
+  // Use custom hooks for state management
+  const {
+    currentPagination,
+    currentSorting,
+    currentColumnFilters,
+    currentGlobalFilter,
+    currentColumnVisibility,
+    currentRowSelection,
+    currentExpanded,
+    currentColumnOrder,
+    currentColumnPinning,
+    currentGrouping,
+    handlePaginationChange,
+    handleSortingChange,
+    handleColumnFiltersChange,
+    handleGlobalFilterChange,
+    handleColumnVisibilityChange,
+    handleRowSelectionChange,
+    handleExpandedChange,
+    handleColumnOrderChange,
+    handleColumnPinningChange,
+    handleGroupingChange,
+  } = useTableState(props);
+
+  // Memoize columns for performance
+  const columns = useMemo(() => propColumns, [propColumns]);
+
+  // Memoize data for performance - we'll use this initially then possibly replace with server or form data
+  const initialMemoizedData = useMemo(() => initialData, [initialData]);
+
+  // Create a state to track what data is currently being used by the table
+  const [tableData, setTableData] = useState<TData[]>(initialMemoizedData);
+
+  // Create the table instance with initial data
   const table = useReactTable({
     data: tableData,
     columns,
 
     // Feature enablers
-    enableSorting,
-    enableMultiSort,
-    enableColumnFilters,
-    enableGlobalFilter,
-    enableRowSelection,
-    enableExpanding,
-    enableColumnResizing,
-    enablePinning,
-    enableGrouping,
-    enableSortingRemoval,
+    enableSorting: features.sorting,
+    enableMultiSort: features.multiSort,
+    enableColumnFilters: features.columnFilters,
+    enableGlobalFilter: features.globalFilter,
+    enableRowSelection: features.rowSelection,
+    enableExpanding: features.expanding,
+    enableColumnResizing: features.columnResizing,
+    enableSortingRemoval: features.sortingRemoval,
 
     // State
     state: {
@@ -446,120 +451,293 @@ export function TableAdapter<TData extends object>(
 
     // Row model getters
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
-    getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
-    getPaginationRowModel: manualPagination
+    getSortedRowModel: server.manualSorting ? undefined : getSortedRowModel(),
+    getFilteredRowModel: server.manualFiltering
+      ? undefined
+      : getFilteredRowModel(),
+    getPaginationRowModel: server.manualPagination
       ? undefined
       : getPaginationRowModel(),
 
     // Advanced options
-    manualPagination,
-    manualSorting,
-    manualFiltering,
-    manualGrouping,
-    autoResetPageIndex,
-    pageCount: pageCount > 0 ? pageCount : undefined,
-    globalFilterFn,
-    columnResizeMode,
+    manualPagination: server.manualPagination,
+    manualSorting: server.manualSorting,
+    manualFiltering: server.manualFiltering,
+    manualGrouping: server.manualGrouping,
+    autoResetPageIndex: server.autoResetPageIndex,
+    pageCount:
+      server.pageCount && server.pageCount > 0 ? server.pageCount : undefined,
+    globalFilterFn: props.globalFilterFn,
+    columnResizeMode: styling.columnResizeMode,
     getRowId,
 
     // Debug
     debugTable,
 
-    // Add meta data for cell updates if needed
+    // Initial meta
     meta: {
       updateData: (rowIndex, columnId, value) => {
-        // This is just a placeholder for implementing cell updates
-        console.log("Update data", rowIndex, columnId, value);
+        console.log("Initial updateData called", rowIndex, columnId, value);
       },
     },
   });
 
-  // If loading and not showing as overlay, show loading component
+  // Server-side data fetching
+  const {
+    isLoading: isFetchLoading,
+    data: serverData,
+    error: fetchError,
+    totalRowCount: serverTotalRowCount,
+    pageCount: serverPageCount,
+  } = useServerSideData(table, server, onError);
 
-  // Render the table (including when loading with showOverlayLoading=false)
-  return (
-    <div className={className} id={id}>
+  // Form integration
+  const {
+    formData,
+    validationErrors,
+    isDirty,
+    handleCellChange,
+    handleSubmit,
+    resetForm,
+  } = useTableForm(
+    // Use server data if available, otherwise use the original data
+    server.fetchData && serverData.length > 0
+      ? serverData
+      : initialMemoizedData,
+    formIntegration.onSubmit,
+    formIntegration.validationRules
+  );
+
+  // Export utilities
+  const { exportToCSV, exportToJSON, handleExport } = useTableExport(
+    // Use the current data source for export
+    features.formMode
+      ? formData
+      : server.fetchData && serverData.length > 0
+      ? serverData
+      : tableData,
+    columns,
+    exportOptions
+  );
+
+  // Update table data based on data source
+  useEffect(() => {
+    let dataToUse: TData[];
+
+    if (features.formMode) {
+      // In form mode, use form data
+      dataToUse = formData;
+    } else if (server.fetchData && serverData.length > 0) {
+      // If using server-side data and we have results, use that
+      dataToUse = serverData;
+    } else {
+      // Otherwise use original data
+      dataToUse = initialMemoizedData;
+    }
+
+    setTableData(dataToUse);
+
+    // We also need to update the table's data
+    table.setOptions((prev) => ({
+      ...prev,
+      data: dataToUse,
+      pageCount: serverPageCount > 0 ? serverPageCount : undefined,
+    }));
+  }, [
+    features.formMode,
+    formData,
+    server.fetchData,
+    serverData,
+    serverPageCount,
+    initialMemoizedData,
+    table,
+  ]);
+
+  // Update meta.updateData to use form or cell edit handler
+  useEffect(() => {
+    table.setOptions((prev) => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        updateData: (rowIndex, columnId, value) => {
+          if (features.formMode) {
+            handleCellChange(rowIndex, columnId, value);
+          } else if (onCellEdit) {
+            onCellEdit(rowIndex, columnId, value);
+          } else {
+            console.log("Update data", rowIndex, columnId, value);
+          }
+        },
+      },
+    }));
+  }, [features.formMode, handleCellChange, onCellEdit, table]);
+
+  // Handle error updates from props
+  useEffect(() => {
+    if (propError) {
+      setError(propError);
+      if (onError) {
+        onError(propError);
+      }
+    }
+  }, [propError, onError]);
+
+  // Combine errors
+  useEffect(() => {
+    if (fetchError && !error) {
+      setError(fetchError);
+      if (onError) {
+        onError(fetchError);
+      }
+    }
+  }, [fetchError, error, onError]);
+
+  // Combine loading states
+  const isTableLoading = loading.isLoading || isFetchLoading;
+  const isPaginationLoading =
+    loading.isPaginationLoading || (isFetchLoading && server.manualPagination);
+
+  // Determine total row count
+  const totalRowCount =
+    propTotalRowCount ??
+    serverTotalRowCount ??
+    table.getFilteredRowModel().rows.length;
+
+  // Merge classNames with proper precedence
+  const mergedClassNames = mergeClassNames(
+    defaultClassNames,
+    styling.classNames
+  );
+
+  // If there's an error and renderError is provided, show error state
+  if (error && renderError) {
+    return renderError(error);
+  }
+
+  // Setup export functionality
+  useEffect(() => {
+    if (onExportData) {
+      // Extend table meta with export function
+      table.setOptions((prev) => ({
+        ...prev,
+        meta: {
+          ...prev.meta,
+          exportData: () => {
+            if (exportOptions.formats && exportOptions.formats[0] === "json") {
+              exportToJSON();
+            } else {
+              exportToCSV();
+            }
+
+            // Call onExportData with current data
+            const currentData = features.formMode
+              ? formData
+              : server.fetchData && serverData.length > 0
+              ? serverData
+              : tableData;
+
+            onExportData(currentData);
+          },
+        },
+      }));
+    }
+  }, [
+    onExportData,
+    exportOptions.formats,
+    exportToCSV,
+    exportToJSON,
+    features.formMode,
+    formData,
+    server.fetchData,
+    serverData,
+    tableData,
+    table,
+  ]);
+
+  // Keyboard navigation handler for accessibility
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!accessibility.keyboardNavigation) return;
+
+      // Navigation keys
+      switch (e.key) {
+        case "Home":
+          table.setPageIndex(0);
+          e.preventDefault();
+          break;
+        case "End":
+          table.setPageIndex(table.getPageCount() - 1);
+          e.preventDefault();
+          break;
+        case "PageUp":
+          if (table.getCanPreviousPage()) {
+            table.previousPage();
+            e.preventDefault();
+          }
+          break;
+        case "PageDown":
+          if (table.getCanNextPage()) {
+            table.nextPage();
+            e.preventDefault();
+          }
+          break;
+      }
+    },
+    [table, accessibility.keyboardNavigation]
+  );
+
+  // Main render function
+  const TableComponent = (
+    <div
+      className={styling.className}
+      id={id}
+      style={styling.style}
+      onKeyDown={handleKeyDown}
+    >
       {/* Custom Table Header */}
       {renderTableHeader && renderTableHeader(table)}
 
       {/* Main Table */}
       <div
         className={`overflow-x-auto relative ${
-          showOverlayLoading && isLoading ? "opacity-60" : ""
+          loading.showOverlayLoading && isTableLoading ? "opacity-60" : ""
         }`}
       >
-        {showOverlayLoading && isLoading && (
+        {loading.showOverlayLoading && isTableLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
-            {loadingComponent}
+            {loading.loadingComponent}
           </div>
         )}
         <table
-          className={tableClassName}
-          aria-label={ariaLabel}
-          aria-labelledby={ariaLabelledBy}
-          aria-describedby={ariaDescribedBy}
+          className={mergedClassNames.table}
+          aria-label={accessibility.ariaLabel}
+          aria-labelledby={accessibility.ariaLabelledBy}
+          aria-describedby={accessibility.ariaDescribedBy}
+          role="grid"
+          {...(accessibility.ariaRowCount
+            ? { "aria-rowcount": totalRowCount }
+            : {})}
+          {...(accessibility.ariaColumnCount
+            ? { "aria-colcount": table.getAllColumns().length }
+            : {})}
         >
-          <thead
-            className={`${headerClassName} ${
-              enableStickyHeader ? "sticky top-0 z-10" : ""
-            }`}
-          >
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    style={{
-                      width: header.getSize(),
-                      position: "relative",
-                    }}
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={
-                          enableSorting && header.column.getCanSort()
-                            ? "cursor-pointer select-none"
-                            : ""
-                        }
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                        {renderSortIcon
-                          ? renderSortIcon(
-                              header.column.getIsSorted() as
-                                | "asc"
-                                | "desc"
-                                | false
-                            )
-                          : { asc: " 🔼", desc: " 🔽" }[
-                              header.column.getIsSorted() as string
-                            ] ?? null}
-                      </div>
-                    )}
-                    {/* Resizer */}
-                    {enableColumnResizing && header.column.getCanResize() && (
-                      <div
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        className={`absolute right-0 top-0 h-full w-1 bg-gray-300 cursor-col-resize touch-none select-none ${
-                          header.column.getIsResizing() ? "bg-blue-500" : ""
-                        }`}
-                      />
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className={bodyClassName}>
+          {/* Table Header */}
+          <TableHeader
+            table={table}
+            headerClassName={mergedClassNames.thead}
+            enableSorting={!!features.sorting}
+            enableStickyHeader={!!features.stickyHeader}
+            enableColumnResizing={!!features.columnResizing}
+            renderSortIcon={renderSortIcon}
+            headerStyle={styling.headerStyle}
+          />
+
+          {/* Table Body */}
+          <tbody className={mergedClassNames.tbody}>
             {/* Show loading indicator when initially loading with no data */}
-            {isLoading && !showOverlayLoading && data.length === 0 ? (
+            {isTableLoading &&
+            !loading.showOverlayLoading &&
+            tableData.length === 0 ? (
               <tr>
                 <td
                   colSpan={
@@ -568,12 +746,12 @@ export function TableAdapter<TData extends object>(
                   }
                   className="px-6 py-12 text-center"
                 >
-                  {loadingComponent}
+                  {loading.loadingComponent}
                 </td>
               </tr>
             ) : isPaginationLoading &&
-              !showOverlayLoading &&
-              data.length > 0 ? (
+              !loading.showOverlayLoading &&
+              tableData.length > 0 ? (
               <>
                 {/* Show existing data with reduced opacity */}
                 <tr>
@@ -584,39 +762,19 @@ export function TableAdapter<TData extends object>(
                     }
                     className="px-6 py-2 text-center border-b"
                   >
-                    {paginationLoadingComponent}
+                    {loading.paginationLoadingComponent}
                   </td>
                 </tr>
-                {table.getRowModel().rows.map((row) => {
-                  const rowClassNameValue =
-                    typeof rowClassName === "function"
-                      ? rowClassName(row)
-                      : rowClassName;
-
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`${rowClassNameValue} opacity-50`}
-                    >
-                      {/* Row cells rendered with reduced opacity */}
-                      {row.getVisibleCells().map((cell) => {
-                        const cellClassNameValue =
-                          typeof cellClassName === "function"
-                            ? cellClassName(row, cell.column.id)
-                            : cellClassName;
-
-                        return (
-                          <td key={cell.id} className={cellClassNameValue}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    row={row}
+                    rowClassName={`${mergedClassNames.tbodyRow} opacity-50`}
+                    cellClassName={mergedClassNames.tbodyCell}
+                    rowStyle={styling.rowStyle}
+                    cellStyle={styling.cellStyle}
+                  />
+                ))}
               </>
             ) : table.getRowModel().rows.length === 0 ? (
               renderNoResults ? (
@@ -635,55 +793,30 @@ export function TableAdapter<TData extends object>(
                 </tr>
               )
             ) : (
-              table.getRowModel().rows.map((row) => {
-                const rowClassNameValue =
-                  typeof rowClassName === "function"
-                    ? rowClassName(row)
-                    : rowClassName;
-
-                return (
-                  <React.Fragment key={row.id}>
-                    <tr
-                      className={rowClassNameValue}
-                      onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    >
-                      {row.getVisibleCells().map((cell) => {
-                        const cellClassNameValue =
-                          typeof cellClassName === "function"
-                            ? cellClassName(row, cell.column.id)
-                            : cellClassName;
-
-                        return (
-                          <td
-                            key={cell.id}
-                            className={cellClassNameValue}
-                            onClick={
-                              onCellClick
-                                ? () => onCellClick(row, cell.column.id)
-                                : undefined
-                            }
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                    {/* Expanded Row Content */}
-                    {enableExpanding &&
-                      row.getIsExpanded() &&
-                      renderRowSubComponent && (
-                        <tr>
-                          <td colSpan={row.getVisibleCells().length}>
-                            {renderRowSubComponent(row)}
-                          </td>
-                        </tr>
-                      )}
-                  </React.Fragment>
-                );
-              })
+              // Regular data rows
+              table.getRowModel().rows.map((row) => (
+                <React.Fragment key={row.id}>
+                  <TableRow
+                    row={row}
+                    rowClassName={mergedClassNames.tbodyRow}
+                    cellClassName={mergedClassNames.tbodyCell}
+                    onRowClick={onRowClick}
+                    onCellClick={onCellClick}
+                    rowStyle={styling.rowStyle}
+                    cellStyle={styling.cellStyle}
+                  />
+                  {/* Expanded Row Content */}
+                  {features.expanding &&
+                    row.getIsExpanded() &&
+                    renderRowSubComponent && (
+                      <ExpandedRow
+                        row={row}
+                        colSpan={row.getVisibleCells().length}
+                        renderRowSubComponent={renderRowSubComponent}
+                      />
+                    )}
+                </React.Fragment>
+              ))
             )}
           </tbody>
         </table>
@@ -693,7 +826,7 @@ export function TableAdapter<TData extends object>(
       {renderTableFooter && renderTableFooter(table)}
 
       {/* Pagination */}
-      {enablePagination &&
+      {features.pagination &&
         renderPagination &&
         renderPagination({
           table,
@@ -701,6 +834,100 @@ export function TableAdapter<TData extends object>(
           isLoading: isPaginationLoading,
           pageSizeOptions,
         })}
+
+      {/* Export Buttons - only shown if export formats are defined and no onExportData handler */}
+      {exportOptions.formats &&
+        exportOptions.formats.length > 0 &&
+        !onExportData && (
+          <div className="mt-4 flex justify-end space-x-2">
+            {exportOptions.formats.includes("csv") && (
+              <button
+                type="button"
+                onClick={() => exportToCSV()}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Export to CSV
+              </button>
+            )}
+            {exportOptions.formats.includes("json") && (
+              <button
+                type="button"
+                onClick={() => exportToJSON()}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Export to JSON
+              </button>
+            )}
+          </div>
+        )}
+
+      {/* Form mode buttons */}
+      {features.formMode && isDirty && (
+        <div className="mt-4 flex justify-end space-x-2">
+          <button
+            type="button"
+            onClick={resetForm}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={Object.keys(validationErrors).length > 0}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Changes
+          </button>
+        </div>
+      )}
+
+      {/* Validation errors summary - only shown if form mode is enabled and showValidationErrors is true */}
+      {features.formMode &&
+        formIntegration.showValidationErrors &&
+        Object.keys(validationErrors).length > 0 && (
+          <div className="mt-4 p-4 border border-red-300 bg-red-50 rounded">
+            <h3 className="text-red-700 font-medium">
+              Please fix the following errors:
+            </h3>
+            <ul className="mt-2 list-disc pl-5 text-red-600">
+              {Object.entries(validationErrors).map(([rowIndex, rowErrors]) =>
+                Object.entries(rowErrors).map(([columnId, error]) => (
+                  <li key={`${rowIndex}-${columnId}`}>
+                    Row {parseInt(rowIndex) + 1}, {columnId}: {error}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        )}
+
+      {/* Accessibility live region for announcements */}
+      {accessibility.ariaLiveRegion && (
+        <div className="sr-only" aria-live="polite">
+          {isTableLoading
+            ? "Loading data..."
+            : `Table with ${totalRowCount} rows and ${
+                table.getAllColumns().filter((col) => col.getIsVisible()).length
+              } columns.`}
+        </div>
+      )}
     </div>
   );
+
+  // Wrap in form if form mode is enabled
+  if (features.formMode) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        {TableComponent}
+      </form>
+    );
+  }
+
+  return TableComponent;
 }

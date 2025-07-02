@@ -12,9 +12,34 @@ import {
   OnChangeFn,
   FilterFn,
   Row,
+  RowData,
+  ColumnPinningState,
+  ColumnPinningPosition,
 } from "@tanstack/react-table";
 
-// Group similar props together
+// Default className configuration
+export type DefaultTableClassNames = {
+  table: string;
+  thead: string;
+  theadRow: string;
+  theadCell: string;
+  tbody: string;
+  tbodyRow: string;
+  tbodyCell: string;
+  header: string;
+  body: string;
+};
+
+// Component-level className overrides
+export type TableClassNames = Partial<DefaultTableClassNames>;
+
+// Global configuration context
+export type TableConfig = {
+  defaultClassNames: DefaultTableClassNames;
+  setDefaultClassNames: (classNames: Partial<DefaultTableClassNames>) => void;
+};
+
+// Group feature flags together
 export type TableFeatures = {
   pagination?: boolean;
   sorting?: boolean;
@@ -28,26 +53,37 @@ export type TableFeatures = {
   pinning?: boolean;
   stickyHeader?: boolean;
   grouping?: boolean;
+  formMode?: boolean;
+  virtualization?: boolean;
+  sortingRemoval?: boolean;
 };
 
+// Group styling props together
 export type TableStyling = {
   className?: string;
-  tableClassName?: string;
-  headerClassName?: string;
-  bodyClassName?: string;
-  rowClassName?: string | ((row: any) => string);
-  cellClassName?: string | ((row: any, columnId: string) => string);
+  classNames?: TableClassNames;
   columnResizeMode?: ColumnResizeMode;
+  style?: React.CSSProperties;
+  headerStyle?: React.CSSProperties;
+  rowStyle?: React.CSSProperties | ((row: Row<any>) => React.CSSProperties);
+  cellStyle?:
+    | React.CSSProperties
+    | ((row: Row<any>, columnId: string) => React.CSSProperties);
 };
 
+// Group loading state props
 export type TableLoading = {
   isLoading?: boolean;
   isPaginationLoading?: boolean;
+  isSortingLoading?: boolean;
+  isFilteringLoading?: boolean;
+  isExportLoading?: boolean;
   showOverlayLoading?: boolean;
   loadingComponent?: React.ReactNode;
   paginationLoadingComponent?: React.ReactNode;
 };
 
+// Group server-side props
 export type TableServer = {
   manualPagination?: boolean;
   manualSorting?: boolean;
@@ -55,52 +91,168 @@ export type TableServer = {
   manualGrouping?: boolean;
   pageCount?: number;
   autoResetPageIndex?: boolean;
+  fetchData?: <TData extends object>(options: {
+    pagination: PaginationState;
+    sorting: SortingState;
+    filters: ColumnFiltersState;
+    globalFilter: string;
+  }) => Promise<{
+    data: TData[];
+    pageCount: number;
+    totalRowCount?: number;
+  }>;
+  onFetchError?: (error: Error) => void;
 };
 
+// Group accessibility props
 export type TableAccessibility = {
   ariaLabel?: string;
   ariaLabelledBy?: string;
   ariaDescribedBy?: string;
+  ariaRowCount?: boolean;
+  ariaColumnCount?: boolean;
+  ariaLiveRegion?: boolean;
+  keyboardNavigation?: boolean;
 };
 
+// Group animation props
+export type TableAnimations = {
+  enableAnimations?: boolean;
+  rowAnimationDuration?: number;
+  sortAnimationDuration?: number;
+  expandAnimationDuration?: number;
+  // Plugin options - consumer can use any animation library
+  animationLib?: "css" | "framer-motion" | "react-spring" | string;
+  customAnimationProps?: Record<string, any>;
+};
+
+// Group virtualization props
+export type TableVirtualization = {
+  rowHeight?: number;
+  visibleRows?: number;
+  // Plugin options - consumer can use any virtualization library
+  virtualizationLib?:
+    | "react-window"
+    | "react-virtualized"
+    | "tanstack-virtual"
+    | string;
+  customVirtualizationProps?: Record<string, any>;
+};
+
+// Group export options
+export type TableExportOptions = {
+  formats?: ("csv" | "xlsx" | "json")[];
+  fileName?: string;
+  includeHiddenColumns?: boolean;
+  exportSelection?: boolean;
+  customFormatter?: (data: any, columnId: string) => string;
+};
+
+// Group form integration props
+export type TableFormIntegration<TData> = {
+  onRowsChange?: (updatedData: TData[]) => void;
+  onSubmit?: (data: TData[]) => void;
+  validationRules?: Record<string, (value: any, row: TData) => string | null>;
+  showValidationErrors?: boolean;
+  renderValidationError?: (error: string) => React.ReactNode;
+  // Plugin options - consumer can use any form library
+  formLib?: "react-hook-form" | "formik" | string;
+  customFormProps?: Record<string, any>;
+};
+
+// Group render props
 export type TableRender<TData> = {
-  tableHeader?: (table: TanStackTable<TData>) => React.ReactNode;
-  tableFooter?: (table: TanStackTable<TData>) => React.ReactNode;
-  pagination?: (props: {
+  renderTableHeader?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderTableFooter?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderPagination?: (props: {
     table: TanStackTable<TData>;
     totalRowCount?: number;
     isLoading?: boolean;
     pageSizeOptions?: number[];
   }) => React.ReactNode;
-  noResults?: (table: TanStackTable<TData>) => React.ReactNode;
-  expanded?: (row: Row<TData>) => React.ReactNode;
-  rowSubComponent?: (row: Row<TData>) => React.ReactNode;
-  groupedCell?: (info: {
+  renderNoResults?: (table: TanStackTable<TData>) => React.ReactNode;
+  renderExpanded?: (row: Row<TData>) => React.ReactNode;
+  renderRowSubComponent?: (row: Row<TData>) => React.ReactNode;
+  renderGroupedCell?: (info: {
     row: Row<TData>;
     cell: any;
     groupedByKey: string;
   }) => React.ReactNode;
+  renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+  renderError?: (error: Error) => React.ReactNode;
 };
 
-export type TableAdapterProps<TData extends object> = {
+// Group state props
+export type TableState = {
+  pagination?: PaginationState;
+  sorting?: SortingState;
+  columnFilters?: ColumnFiltersState;
+  globalFilter?: string;
+  columnVisibility?: VisibilityState;
+  rowSelection?: RowSelectionState;
+  expanded?: ExpandedState;
+  columnOrder?: string[];
+  columnPinning?: ColumnPinningState;
+  grouping?: string[];
+};
+
+// Group state change handlers
+export type TableStateHandlers<TData> = {
+  onPaginationChange?: OnChangeFn<PaginationState>;
+  onSortingChange?: OnChangeFn<SortingState>;
+  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
+  onGlobalFilterChange?: OnChangeFn<string>;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  onExpandedChange?: OnChangeFn<ExpandedState>;
+  onColumnOrderChange?: OnChangeFn<string[]>;
+  onColumnPinningChange?: OnChangeFn<ColumnPinningState>;
+  onGroupingChange?: OnChangeFn<string[]>;
+  onCellEdit?: (rowIndex: number, columnId: string, value: unknown) => void;
+};
+
+// Group event handlers
+export type TableEventHandlers<TData> = {
+  onRowClick?: (row: Row<TData>) => void;
+  onCellClick?: (row: Row<TData>, columnId: string) => void;
+  onExportData?: (data: TData[], options?: TableExportOptions) => void;
+  onError?: (error: Error) => void;
+};
+
+// Main TableAdapter props with grouped structure
+export type TableAdapterProps<TData extends object, TValue = unknown> = {
   // Core Props
   data: TData[];
-  columns: ColumnDef<TData, any>[];
+  columns: ColumnDef<TData, TValue>[];
   totalRowCount?: number;
   id?: string;
   debugTable?: boolean;
   getRowId?: (row: TData, index: number, parent?: Row<TData>) => string;
+  error?: Error | null;
 
-  // Styling Props
-  className?: string;
-  tableClassName?: string;
-  headerClassName?: string;
-  bodyClassName?: string;
-  rowClassName?: string | ((row: Row<TData>) => string);
-  cellClassName?: string | ((row: Row<TData>, columnId: string) => string);
-  columnResizeMode?: ColumnResizeMode;
+  // Grouped Props
+  features?: Partial<TableFeatures>;
+  styling?: TableStyling;
+  loading?: TableLoading;
+  server?: TableServer;
+  accessibility?: TableAccessibility;
+  animations?: TableAnimations;
+  virtualization?: TableVirtualization;
+  exportOptions?: TableExportOptions;
+  formIntegration?: TableFormIntegration<TData>;
 
-  // Feature Props
+  // Render Props
+  render?: TableRender<TData>;
+
+  // State Props
+  state?: TableState;
+  onStateChange?: TableStateHandlers<TData>;
+
+  // Event Handlers
+  events?: TableEventHandlers<TData>;
+
+  // Legacy Props - to maintain backward compatibility
+  // These will be mapped to the grouped props internally
   enablePagination?: boolean;
   enableSorting?: boolean;
   enableMultiSort?: boolean;
@@ -112,8 +264,12 @@ export type TableAdapterProps<TData extends object> = {
   enablePinning?: boolean;
   enableStickyHeader?: boolean;
   enableGrouping?: boolean;
+  enableSortingRemoval?: boolean;
 
-  // State Props
+  className?: string;
+  classNames?: TableClassNames;
+  columnResizeMode?: ColumnResizeMode;
+
   pageSize?: number;
   pageIndex?: number;
   sorting?: SortingState;
@@ -123,10 +279,9 @@ export type TableAdapterProps<TData extends object> = {
   rowSelection?: RowSelectionState;
   expanded?: ExpandedState;
   columnOrder?: string[];
-  columnPinning?: { left: string[]; right: string[] };
+  columnPinning?: ColumnPinningState;
   grouping?: string[];
 
-  // Controlled State Handlers
   onPaginationChange?: OnChangeFn<PaginationState>;
   onSortingChange?: OnChangeFn<SortingState>;
   onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
@@ -135,10 +290,9 @@ export type TableAdapterProps<TData extends object> = {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   onExpandedChange?: OnChangeFn<ExpandedState>;
   onColumnOrderChange?: OnChangeFn<string[]>;
-  onColumnPinningChange?: OnChangeFn<{ left: string[]; right: string[] }>;
+  onColumnPinningChange?: OnChangeFn<ColumnPinningState>;
   onGroupingChange?: OnChangeFn<string[]>;
 
-  // Advanced Props
   manualPagination?: boolean;
   manualSorting?: boolean;
   manualFiltering?: boolean;
@@ -147,7 +301,6 @@ export type TableAdapterProps<TData extends object> = {
   autoResetPageIndex?: boolean;
   globalFilterFn?: FilterFn<TData>;
 
-  // Custom Components
   renderTableHeader?: (table: TanStackTable<TData>) => React.ReactNode;
   renderTableFooter?: (table: TanStackTable<TData>) => React.ReactNode;
   renderPagination?: (props: {
@@ -165,27 +318,36 @@ export type TableAdapterProps<TData extends object> = {
     groupedByKey: string;
   }) => React.ReactNode;
 
-  // Custom Event Handlers
   onRowClick?: (row: Row<TData>) => void;
   onCellClick?: (row: Row<TData>, columnId: string) => void;
   onExportData?: (data: TData[]) => void;
 
-  // Loading State
   isLoading?: boolean;
   isPaginationLoading?: boolean;
   loadingComponent?: React.ReactNode;
   paginationLoadingComponent?: React.ReactNode;
   showOverlayLoading?: boolean;
 
-  // Accessibility
   ariaLabel?: string;
   ariaLabelledBy?: string;
   ariaDescribedBy?: string;
 
-  // Pagination Options
   pageSizeOptions?: number[];
 
-  // Sorting Customization
   renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
-  enableSortingRemoval?: boolean;
 };
+
+// Extend the ColumnMeta interface to include custom properties
+declare module "@tanstack/react-table" {
+  interface TableMeta<TData extends RowData> {
+    updateData?: (rowIndex: number, columnId: string, value: unknown) => void;
+    exportData?: () => void;
+  }
+
+  interface ColumnMeta<TData extends RowData, TValue> {
+    headerClassName?: string;
+    headerStyle?: React.CSSProperties;
+    cellClassName?: string;
+    cellStyle?: React.CSSProperties;
+  }
+}

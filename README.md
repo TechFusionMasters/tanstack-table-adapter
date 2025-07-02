@@ -69,6 +69,14 @@ export default function App() {
       enablePagination
       enableSorting
       className="w-full max-w-2xl"
+      classNames={{
+        table: "min-w-full divide-y divide-gray-200",
+        thead: "bg-gray-50",
+        theadCell:
+          "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+        tbody: "bg-white divide-y divide-gray-200",
+        tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+      }}
     />
   );
 }
@@ -115,7 +123,9 @@ export default function App() {
 
 #### Styling
 
-- `className?`, `tableClassName?`, `headerClassName?`, `bodyClassName?`, `rowClassName?`, `cellClassName?`, `columnResizeMode?`, `pageSizeOptions?`, `enableSortingRemoval?`
+- `className?`: Container wrapper className
+- `classNames?`: Granular control over table styling (table, thead, theadCell, tbody, tbodyRow, tbodyCell)
+- `columnResizeMode?`, `pageSizeOptions?`, `enableSortingRemoval?`
 
 ---
 
@@ -125,6 +135,161 @@ export default function App() {
 - `fuzzyFilter`: Fuzzy text filter function for global/column filtering
 - `GlobalFilterInput`: Ready-to-use global filter input component
 - `ColumnVisibilityToggle`: UI for toggling column visibility
+
+## ClassName System
+
+TableAdapter provides a comprehensive className system that supports default classes, global configuration, and component-level overrides.
+
+### Default ClassNames
+
+The table comes with sensible default Tailwind CSS classes:
+
+```tsx
+const DEFAULT_TABLE_CLASSNAMES = {
+  table: "min-w-full divide-y divide-gray-200",
+  thead: "bg-gray-50",
+  theadRow: "",
+  theadCell:
+    "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+  tbody: "bg-white divide-y divide-gray-200",
+  tbodyRow: "",
+  tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+  header: "bg-gray-50",
+  body: "bg-white divide-y divide-gray-200",
+};
+```
+
+### Global Configuration
+
+Use `TableConfigProvider` to set application-wide default classNames:
+
+```tsx
+import {
+  TableConfigProvider,
+  TableAdapter,
+} from "@TechFusionMasters/tanstack-table-adapter";
+
+function App() {
+  return (
+    <TableConfigProvider
+      initialClassNames={{
+        table: "min-w-full divide-y divide-blue-200 border border-blue-300",
+        thead: "bg-blue-50",
+        theadCell:
+          "px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider",
+        tbody: "bg-white divide-y divide-blue-200",
+        tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-900",
+      }}
+    >
+      <TableAdapter data={data} columns={columns} />
+      <TableAdapter data={otherData} columns={otherColumns} />
+    </TableConfigProvider>
+  );
+}
+```
+
+### Component-Level Overrides
+
+Override classNames for specific tables without affecting others:
+
+```tsx
+<TableAdapter
+  data={data}
+  columns={columns}
+  classNames={{
+    table: "min-w-full divide-y divide-red-200 border-2 border-red-400",
+    thead: "bg-red-50",
+    theadCell:
+      "px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider",
+    tbody: "bg-red-50 divide-y divide-red-200",
+    tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-900",
+  }}
+/>
+```
+
+### Dynamic Global Configuration
+
+Update global classNames at runtime:
+
+```tsx
+import { useTableConfig } from "@TechFusionMasters/tanstack-table-adapter";
+
+function ThemeSwitcher() {
+  const { setDefaultClassNames } = useTableConfig();
+
+  return (
+    <div>
+      <button
+        onClick={() =>
+          setDefaultClassNames({
+            table: "min-w-full divide-y divide-blue-200 border border-blue-300",
+            thead: "bg-blue-50",
+            theadCell:
+              "px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider",
+            tbody: "bg-white divide-y divide-blue-200",
+            tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-900",
+          })
+        }
+      >
+        Blue Theme
+      </button>
+      <button
+        onClick={() =>
+          setDefaultClassNames({
+            table:
+              "min-w-full divide-y divide-green-200 border border-green-300",
+            thead: "bg-green-50",
+            theadCell:
+              "px-6 py-3 text-left text-xs font-medium text-green-600 uppercase tracking-wider",
+            tbody: "bg-white divide-y divide-green-200",
+            tbodyCell: "px-6 py-4 whitespace-nowrap text-sm text-gray-900",
+          })
+        }
+      >
+        Green Theme
+      </button>
+    </div>
+  );
+}
+```
+
+### Precedence Order
+
+The className system follows this precedence order (highest to lowest):
+
+1. **Component-level overrides** (`classNames` prop)
+2. **Global configuration** (set via `TableConfigProvider`)
+3. **Default classNames** (built-in defaults)
+
+### Migration from Legacy Props
+
+If you were using the legacy styling props, migrate to the new `classNames` prop:
+
+```tsx
+// Old way (no longer supported)
+<TableAdapter
+  data={data}
+  columns={columns}
+  tableClassName="custom-table-class"
+  headerClassName="custom-header-class"
+  bodyClassName="custom-body-class"
+  rowClassName="hover:bg-gray-50"
+  cellClassName="px-4 py-2"
+/>
+
+// New way
+<TableAdapter
+  data={data}
+  columns={columns}
+  classNames={{
+    table: "custom-table-class",
+    thead: "custom-header-class",
+    tbody: "custom-body-class",
+    tbodyRow: "hover:bg-gray-50",
+    tbodyCell: "px-4 py-2",
+  }}
+/>
+```
 
 ---
 
