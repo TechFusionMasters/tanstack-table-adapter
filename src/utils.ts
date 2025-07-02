@@ -161,7 +161,18 @@ export function mergeClassNames(
   return merged;
 }
 
-// Factory function for controlled/uncontrolled state handlers
+// For key utility functions
+/**
+ * Factory function for creating controlled/uncontrolled state handlers
+ *
+ * @template T - The type of state being managed
+ *
+ * @param isControlled - Whether the state is controlled externally
+ * @param externalHandler - Handler function for controlled state
+ * @param internalSetter - React setState function for uncontrolled state
+ * @param getCurrentValue - Function to get the current state value
+ * @returns Function that handles state updates appropriately
+ */
 export function createControlledHandler<T>(
   isControlled: boolean,
   externalHandler: ((value: T) => void) | undefined,
@@ -182,7 +193,18 @@ export function createControlledHandler<T>(
   };
 }
 
-// Extract feature flags from props, combining the new grouped structure with legacy props
+/**
+ * Extract feature flags from TableAdapter props
+ *
+ * Combines new grouped structure with legacy props, with legacy props
+ * taking precedence for backward compatibility.
+ *
+ * @template TData - The type of data being displayed in the table
+ * @template TValue - The type of values in the table cells
+ *
+ * @param props - The TableAdapter props
+ * @returns Object containing all feature flags with proper defaults
+ */
 export function extractFeatureFlags<TData extends object, TValue>(
   props: TableAdapterProps<TData, TValue>
 ): TableFeatures {

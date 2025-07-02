@@ -230,7 +230,26 @@ const ExpandedRow = React.memo(
     );
   }
 );
-
+/**
+ * TableAdapter - A comprehensive wrapper around TanStack Table v8.0.0
+ *
+ * Provides a simplified API with extensive customization options while
+ * leveraging TanStack Table's powerful core functionality.
+ *
+ * @template TData - The type of data being displayed in the table
+ * @template TValue - The type of values in the table cells
+ *
+ * @example
+ * ```tsx
+ * <TableAdapter
+ *   data={users}
+ *   columns={[
+ *     { accessorKey: 'name', header: 'Name' },
+ *     { accessorKey: 'email', header: 'Email' },
+ *   ]}
+ * />
+ * ```
+ */
 export function TableAdapter<TData extends object, TValue = unknown>(
   props: TableAdapterProps<TData, TValue>
 ) {

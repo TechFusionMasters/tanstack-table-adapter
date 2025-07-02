@@ -4,9 +4,22 @@ import {
   EnhancedPaginationLoadingComponent,
 } from "./components";
 
+// For TableWithLoadingStates
 /**
- * TableWithLoadingStates - A wrapper component that manages loading states for TableAdapter
- * This separates loading UI concerns from the table component itself
+ * Wrapper component that manages loading states for TableAdapter
+ *
+ * This component separates loading UI concerns from the table component itself,
+ * providing a clean way to handle initial loading and pagination loading states.
+ *
+ * @example
+ * ```tsx
+ * <TableWithLoadingStates
+ *   isInitialLoading={isLoading}
+ *   isPaginationLoading={isPaginating}
+ * >
+ *   <TableAdapter data={data} columns={columns} />
+ * </TableWithLoadingStates>
+ * ```
  */
 export function TableWithLoadingStates({
   isInitialLoading = false,

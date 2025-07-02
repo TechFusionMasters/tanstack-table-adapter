@@ -14,7 +14,19 @@ import {
 import { createControlledHandler, exportToCSV } from "./utils";
 import { TableAdapterProps, TableExportOptions, TableServer } from "./types";
 
-// Custom hook for managed table state with controlled/uncontrolled pattern
+// For the custom hooks
+/**
+ * Custom hook for managing table state with controlled/uncontrolled pattern
+ *
+ * Handles all table state (sorting, pagination, filtering, etc.) and
+ * properly manages the controlled vs. uncontrolled state.
+ *
+ * @template TData - The type of data being displayed in the table
+ * @template TValue - The type of values in the table cells
+ *
+ * @param props - The TableAdapter props
+ * @returns Object containing current state values and handler functions
+ */
 export function useTableState<TData extends object, TValue = unknown>(
   props: TableAdapterProps<TData, TValue>
 ) {
@@ -271,7 +283,19 @@ export function useTableState<TData extends object, TValue = unknown>(
   };
 }
 
-// Custom hook for server-side data fetching
+/**
+ * Custom hook for server-side data fetching
+ *
+ * Manages loading states, error handling, and data fetching based on
+ * table state changes (pagination, sorting, filtering).
+ *
+ * @template TData - The type of data being displayed in the table
+ *
+ * @param table - The TanStack Table instance
+ * @param serverOptions - Server-side options for data fetching
+ * @param onError - Optional error handler
+ * @returns Object containing loading state, data, and error information
+ */
 export function useServerSideData<TData extends object>(
   table: Table<TData>,
   serverOptions?: TableServer,
@@ -358,7 +382,19 @@ export function useServerSideData<TData extends object>(
   };
 }
 
-// Custom hook for CSV/Excel export functionality
+/**
+ * Custom hook for CSV/Excel/JSON export functionality
+ *
+ * Provides methods to export table data in various formats.
+ *
+ * @template TData - The type of data being displayed in the table
+ * @template TValue - The type of values in the table cells
+ *
+ * @param data - The data to export
+ * @param columns - The table columns
+ * @param options - Export options (format, filename, etc.)
+ * @returns Object containing export functions
+ */
 export function useTableExport<TData extends object, TValue = unknown>(
   data: TData[],
   columns: ColumnDef<TData, TValue>[],
@@ -433,7 +469,18 @@ export function useTableExport<TData extends object, TValue = unknown>(
   };
 }
 
-// Custom hook for form integration
+/**
+ * Custom hook for form integration with tables
+ *
+ * Enables editing table data with validation and form submission.
+ *
+ * @template TData - The type of data being displayed in the table
+ *
+ * @param initialData - The initial form data
+ * @param onSubmit - Form submission handler
+ * @param validationRules - Validation rules for form fields
+ * @returns Object containing form state and handlers
+ */
 export function useTableForm<TData extends object>(
   initialData: TData[],
   onSubmit?: (data: TData[]) => void,

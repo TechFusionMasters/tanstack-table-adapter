@@ -4,9 +4,27 @@ import userEvent from "@testing-library/user-event";
 import { TableAdapter } from "./index";
 import type { TableAdapterProps } from "./types";
 
+// For test utilities
 /**
  * Creates a test table with default test data and columns
- * This is useful for unit testing components that use TableAdapter
+ *
+ * This utility function is designed for unit testing components that use TableAdapter.
+ * It provides helper methods to interact with and assert against the rendered table.
+ *
+ * @template TData - The type of data being displayed in the table
+ *
+ * @param props - Partial TableAdapter props to override defaults
+ * @returns Object containing render result and helper functions
+ *
+ * @example
+ * ```tsx
+ * test('sorts table when clicking header', async () => {
+ *   const { sortByColumn, getCellContent } = createTestTable();
+ *
+ *   await sortByColumn('Name');
+ *   expect(getCellContent(0, 1)).toBe('Test 1');
+ * });
+ * ```
  */
 export function createTestTable<TData extends object>(
   props: Partial<TableAdapterProps<TData>> = {}

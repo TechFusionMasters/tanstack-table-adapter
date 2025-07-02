@@ -13,8 +13,14 @@ import { DEFAULT_TABLE_CLASSNAMES, mergeClassNames } from "./utils";
 const TableConfigContext = createContext<TableConfig | undefined>(undefined);
 
 /**
- * Provider component for table configuration
- * Manages global styling defaults for all TableAdapter instances
+ * Provider component for global table configuration
+ *
+ * Manages global styling defaults for all TableAdapter instances.
+ * Wrap your application or a section of it with this provider to
+ * establish consistent table styling across components.
+ *
+ * @param props.children - Child components
+ * @param props.initialClassNames - Initial class name overrides
  */
 export function TableConfigProvider({
   children,
@@ -64,9 +70,10 @@ export function TableConfigProvider({
 }
 
 /**
- * Hook to use the table configuration
- * @returns The table configuration from context
- * @throws Error if used outside of a TableConfigProvider
+ * Hook to access the table configuration context
+ *
+ * @returns The table configuration context
+ * @throws Error if used outside of TableConfigProvider
  */
 export function useTableConfig(): TableConfig {
   const context = useContext(TableConfigContext);
