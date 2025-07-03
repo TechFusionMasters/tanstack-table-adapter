@@ -347,6 +347,7 @@ export const CustomStyling: Story = {
   args: {
     data: smallDataSet,
     columns: columns as ColumnDef<Person>[],
+    pageSize: 4,
     styling: {
       className: "w-full max-w-4xl shadow-lg rounded-lg overflow-hidden",
       classNames: {
