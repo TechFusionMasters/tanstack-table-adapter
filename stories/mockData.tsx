@@ -133,7 +133,7 @@ export const generatePeople = (count: number): Person[] => {
 };
 
 // Generate data sets of different sizes
-export const smallDataSet = generatePeople(10);
+export const smallDataSet = generatePeople(15);
 export const mediumDataSet = generatePeople(50);
 export const largeDataSet = generatePeople(200);
 export const hugeDataSet = generatePeople(1000);

@@ -8,7 +8,7 @@ import { PaginationState, SortingState } from "@tanstack/react-table";
  * This file demonstrates the server-side capabilities of the TableAdapter component.
  */
 const meta: Meta<typeof TableAdapter<Person>> = {
-  title: "Components/TableAdapter/Server Side",
+  title: "TableAdapter/Server Side",
   component: TableAdapter,
   parameters: {
     layout: "centered",

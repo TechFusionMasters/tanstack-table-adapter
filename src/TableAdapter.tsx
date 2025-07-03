@@ -46,95 +46,93 @@ import {
 
 // Use React.memo for performance optimization
 // Use React.memo for performance optimization
-const TableHeader = React.memo(
-  ({
-    table,
-    headerClassName,
-    enableSorting = false,
-    enableStickyHeader = false,
-    enableColumnResizing = false,
-    renderSortIcon,
-    headerStyle,
-  }: {
-    table: TanStackTable<any>;
-    headerClassName: string;
-    enableSorting?: boolean;
-    enableStickyHeader?: boolean;
-    enableColumnResizing?: boolean;
-    renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
-    headerStyle?: React.CSSProperties;
-  }) => {
-    return (
-      <thead
-        className={`${headerClassName} ${
-          enableStickyHeader ? "sticky top-0 z-10" : ""
-        }`}
-        style={headerStyle}
-      >
-        {table.getHeaderGroups().map((headerGroup) => (
-          <tr key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <th
-                key={header.id}
-                colSpan={header.colSpan}
-                className={header.column.columnDef.meta?.headerClassName || ""}
-                style={{
-                  width: header.getSize(),
-                  position: "relative",
-                  ...(header.column.columnDef.meta?.headerStyle || {}),
-                }}
-              >
-                {header.isPlaceholder ? null : (
-                  <div
-                    className={
-                      enableSorting && header.column.getCanSort()
-                        ? "cursor-pointer select-none"
-                        : ""
-                    }
-                    onClick={header.column.getToggleSortingHandler()}
-                    role={
-                      enableSorting && header.column.getCanSort()
-                        ? "button"
-                        : undefined
-                    }
-                    aria-label={
-                      enableSorting && header.column.getCanSort()
-                        ? `Sort by ${header.column.id}`
-                        : undefined
-                    }
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {renderSortIcon
-                      ? renderSortIcon(
-                          header.column.getIsSorted() as "asc" | "desc" | false
-                        )
-                      : { asc: " 🔼", desc: " 🔽" }[
-                          header.column.getIsSorted() as string
-                        ] ?? null}
-                  </div>
-                )}
-                {/* Resizer */}
-                {enableColumnResizing && header.column.getCanResize() && (
-                  <div
-                    onMouseDown={header.getResizeHandler()}
-                    onTouchStart={header.getResizeHandler()}
-                    className={`absolute right-0 top-0 h-full w-1 bg-gray-300 cursor-col-resize touch-none select-none ${
-                      header.column.getIsResizing() ? "bg-blue-500" : ""
-                    }`}
-                    aria-label={`Resize ${header.column.id} column`}
-                  />
-                )}
-              </th>
-            ))}
-          </tr>
-        ))}
-      </thead>
-    );
-  }
-);
+function TableHeader<TData>({
+  table,
+  headerClassName,
+  enableSorting = false,
+  enableStickyHeader = false,
+  enableColumnResizing = false,
+  renderSortIcon,
+  headerStyle,
+}: {
+  table: TanStackTable<TData>;
+  headerClassName: string;
+  enableSorting?: boolean;
+  enableStickyHeader?: boolean;
+  enableColumnResizing?: boolean;
+  renderSortIcon?: (direction: "asc" | "desc" | false) => React.ReactNode;
+  headerStyle?: React.CSSProperties;
+}) {
+  return (
+    <thead
+      className={`${headerClassName} ${
+        enableStickyHeader ? "sticky top-0 z-10" : ""
+      }`}
+      style={headerStyle}
+    >
+      {table.getHeaderGroups().map((headerGroup) => (
+        <tr key={headerGroup.id}>
+          {headerGroup.headers.map((header) => (
+            <th
+              key={header.id}
+              colSpan={header.colSpan}
+              className={header.column.columnDef.meta?.headerClassName || ""}
+              style={{
+                width: header.getSize(),
+                position: "relative",
+                ...(header.column.columnDef.meta?.headerStyle || {}),
+              }}
+            >
+              {header.isPlaceholder ? null : (
+                <div
+                  className={
+                    enableSorting && header.column.getCanSort()
+                      ? "cursor-pointer select-none"
+                      : ""
+                  }
+                  onClick={header.column.getToggleSortingHandler()}
+                  role={
+                    enableSorting && header.column.getCanSort()
+                      ? "button"
+                      : undefined
+                  }
+                  aria-label={
+                    enableSorting && header.column.getCanSort()
+                      ? `Sort by ${header.column.id}`
+                      : undefined
+                  }
+                >
+                  {flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+                  {renderSortIcon
+                    ? renderSortIcon(
+                        header.column.getIsSorted() as "asc" | "desc" | false
+                      )
+                    : { asc: " 🔼", desc: " 🔽" }[
+                        header.column.getIsSorted() as string
+                      ] ?? null}
+                </div>
+              )}
+              {/* Resizer */}
+              {enableColumnResizing && header.column.getCanResize() && (
+                <div
+                  onMouseDown={header.getResizeHandler()}
+                  onTouchStart={header.getResizeHandler()}
+                  className={`absolute right-0 top-0 h-full w-1 bg-gray-300 cursor-col-resize touch-none select-none ${
+                    header.column.getIsResizing() ? "bg-blue-500" : ""
+                  }`}
+                  aria-label={`Resize ${header.column.id} column`}
+                />
+              )}
+            </th>
+          ))}
+        </tr>
+      ))}
+    </thead>
+  );
+}
 
 // Row component with memo for performance
 const TableRow = React.memo(
@@ -784,16 +782,24 @@ export function TableAdapter<TData extends object, TValue = unknown>(
                     {loading.paginationLoadingComponent}
                   </td>
                 </tr>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    row={row}
-                    rowClassName={`${mergedClassNames.tbodyRow} opacity-50`}
-                    cellClassName={mergedClassNames.tbodyCell}
-                    rowStyle={styling.rowStyle}
-                    cellStyle={styling.cellStyle}
-                  />
-                ))}
+                {table.getRowModel().rows.map((row) => {
+                  // Use a key that includes selection state for loading rows
+                  const isSelected = row.getIsSelected();
+                  const rowKey = `${row.id}-${
+                    isSelected ? "selected" : "unselected"
+                  }-loading`;
+
+                  return (
+                    <TableRow
+                      key={rowKey}
+                      row={row}
+                      rowClassName={`${mergedClassNames.tbodyRow} opacity-50`}
+                      cellClassName={mergedClassNames.tbodyCell}
+                      rowStyle={styling.rowStyle}
+                      cellStyle={styling.cellStyle}
+                    />
+                  );
+                })}
               </>
             ) : table.getRowModel().rows.length === 0 ? (
               renderNoResults ? (
@@ -813,29 +819,37 @@ export function TableAdapter<TData extends object, TValue = unknown>(
               )
             ) : (
               // Regular data rows
-              table.getRowModel().rows.map((row) => (
-                <React.Fragment key={row.id}>
-                  <TableRow
-                    row={row}
-                    rowClassName={mergedClassNames.tbodyRow}
-                    cellClassName={mergedClassNames.tbodyCell}
-                    onRowClick={onRowClick}
-                    onCellClick={onCellClick}
-                    rowStyle={styling.rowStyle}
-                    cellStyle={styling.cellStyle}
-                  />
-                  {/* Expanded Row Content */}
-                  {features.expanding &&
-                    row.getIsExpanded() &&
-                    renderRowSubComponent && (
-                      <ExpandedRow
-                        row={row}
-                        colSpan={row.getVisibleCells().length}
-                        renderRowSubComponent={renderRowSubComponent}
-                      />
-                    )}
-                </React.Fragment>
-              ))
+              table.getRowModel().rows.map((row) => {
+                // Generate a key that includes the selection state
+                const isSelected = row.getIsSelected();
+                const rowKey = `${row.id}-${
+                  isSelected ? "selected" : "unselected"
+                }`;
+
+                return (
+                  <React.Fragment key={rowKey}>
+                    <TableRow
+                      row={row}
+                      rowClassName={mergedClassNames.tbodyRow}
+                      cellClassName={mergedClassNames.tbodyCell}
+                      onRowClick={onRowClick}
+                      onCellClick={onCellClick}
+                      rowStyle={styling.rowStyle}
+                      cellStyle={styling.cellStyle}
+                    />
+                    {/* Expanded Row Content */}
+                    {features.expanding &&
+                      row.getIsExpanded() &&
+                      renderRowSubComponent && (
+                        <ExpandedRow
+                          row={row}
+                          colSpan={row.getVisibleCells().length}
+                          renderRowSubComponent={renderRowSubComponent}
+                        />
+                      )}
+                  </React.Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

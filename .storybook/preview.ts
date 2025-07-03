@@ -9,6 +9,23 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+    options: {
+      storySort: {
+        order: [
+          "TableAdapter",
+          [
+            "Basic",
+            "Pagination",
+            "Sorting",
+            "Selection",
+            "Loading States",
+            "Server Side",
+            "Advanced",
+            "Filtering",
+          ],
+        ],
+      },
+    },
   },
 };
 

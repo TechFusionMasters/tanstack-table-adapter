@@ -8,7 +8,7 @@ import { ColumnDef } from "@tanstack/react-table";
  * This file demonstrates the different loading states available in the TableAdapter component.
  */
 const meta: Meta<typeof TableAdapter<Person>> = {
-  title: "Components/TableAdapter/Loading States",
+  title: "TableAdapter/Loading States",
   component: TableAdapter,
   parameters: {
     layout: "centered",
@@ -177,6 +177,7 @@ export const LoadingStateTransitions: Story = {
     className: "w-full max-w-4xl",
     enablePagination: true,
     pageSize: 10,
+    totalRowCount: mediumDataSet.length,
   },
 };
 
@@ -237,5 +238,6 @@ export const TableWithLoadingStatesWrapper: Story = {
     className: "w-full max-w-4xl",
     enablePagination: true,
     pageSize: 10,
+    totalRowCount: mediumDataSet.length,
   },
 };
