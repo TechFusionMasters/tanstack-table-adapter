@@ -90,7 +90,18 @@ function TableHeader<TData>({
                       ? "cursor-pointer select-none"
                       : ""
                   }
-                  onClick={header.column.getToggleSortingHandler()}
+                  onClick={(e) => {
+                    console.log(
+                      "Header clicked:",
+                      header.column.id,
+                      "Event:",
+                      e
+                    );
+                    const handler = header.column.getToggleSortingHandler();
+                    if (handler) {
+                      handler(e);
+                    }
+                  }}
                   role={
                     enableSorting && header.column.getCanSort()
                       ? "button"
@@ -425,6 +436,10 @@ export function TableAdapter<TData extends object, TValue = unknown>(
   // Create a state to track what data is currently being used by the table
   const [tableData, setTableData] = useState<TData[]>(initialMemoizedData);
 
+  // Determine the multi-sort event handler: use prop if provided, otherwise default to Shift key
+  const isMultiSortEvent =
+    props.isMultiSortEvent ?? ((e: unknown) => !!(e && (e as any).shiftKey));
+
   // Create the table instance with initial data
   const table = useReactTable({
     data: tableData,
@@ -439,6 +454,11 @@ export function TableAdapter<TData extends object, TValue = unknown>(
     enableExpanding: features.expanding,
     enableColumnResizing: features.columnResizing,
     enableSortingRemoval: features.sortingRemoval,
+
+    // Advanced multi-sorting options
+    isMultiSortEvent,
+    maxMultiSortColCount: props.maxMultiSortColCount,
+    enableMultiRemove: props.enableMultiRemove,
 
     // State
     state: {

@@ -28,11 +28,13 @@ export const columns = [
     header: "First Name",
     cell: (info) => info.getValue(),
     footer: (info) => info.column.id,
+    enableSorting: true,
   }),
   columnHelper.accessor("lastName", {
     header: "Last Name",
     cell: (info) => info.getValue(),
     footer: (info) => info.column.id,
+    enableSorting: true,
   }),
   columnHelper.accessor("age", {
     header: "Age",

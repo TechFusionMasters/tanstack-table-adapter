@@ -545,7 +545,7 @@ export const CompleteExample: Story = {
         ),
         size: 40,
       },
-      ...(columns as any),
+      ...(columns as ColumnDef<Person, unknown>[]),
     ],
     className: "w-full",
     features: {

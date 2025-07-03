@@ -1070,6 +1070,11 @@ export type TableAdapterProps<TData extends object, TValue = unknown> = {
   enableGrouping?: boolean;
   enableSortingRemoval?: boolean;
 
+  // Advanced multi-sorting props
+  isMultiSortEvent?: (e: unknown) => boolean;
+  maxMultiSortColCount?: number;
+  enableMultiRemove?: boolean;
+
   className?: string;
   classNames?: TableClassNames;
   columnResizeMode?: ColumnResizeMode;

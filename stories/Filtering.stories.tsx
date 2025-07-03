@@ -7,7 +7,7 @@ import { fuzzyFilter } from "../src/utils";
 import { ColumnDef } from "@tanstack/react-table";
 
 const meta: Meta<typeof TableAdapter<Person>> = {
-  title: "In Progress/TableAdapter/Filtering",
+  title: "TODO/TableAdapter/Filtering",
   component: TableAdapter,
   parameters: {
     layout: "centered",
