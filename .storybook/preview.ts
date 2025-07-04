@@ -3,6 +3,12 @@ import "../stories/tailwind.css";
 
 const preview: Preview = {
   parameters: {
+    docs: {
+      source: {
+        state: 'open',
+        copyButton: true
+      }
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

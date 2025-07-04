@@ -304,7 +304,9 @@ export function useServerSideData<TData extends object>(
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<TData[]>([]);
   const [pageCount, setPageCount] = useState(0);
-  const [totalRowCount, setTotalRowCount] = useState(0);
+  const [totalRowCount, setTotalRowCount] = useState<number | undefined>(
+    undefined
+  );
   const [error, setError] = useState<Error | null>(null);
 
   const fetchData = useCallback(
