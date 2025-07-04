@@ -1,6 +1,6 @@
 {
   "name": "@techfusionmasters/tanstack-table-adapter",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Adapter for TanStack Table in React applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -36,7 +36,7 @@
   },
   "peerDependencies": {
     "@tanstack/react-table": "^8.0.0",
-     "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
     "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
